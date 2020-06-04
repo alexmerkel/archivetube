@@ -57,23 +57,21 @@ def main(args):
         reIndex(db, path)
 
         #Write changes to database
-        dbCon.commit()
+        if dbCon:
+            dbCon.commit()
+            dbCon.close()
     except KeyboardInterrupt:
         print("Aborted!")
 
     #Start server
     try:
-        server = Server(db)
+        server = Server(dbPath)
         server.daemon = True
         server.start()
         server.join()
     except KeyboardInterrupt:
         #Stop server and exit
         print("Exiting...")
-        #Close database
-        if dbCon:
-            dbCon.commit()
-            dbCon.close()
 # ########################################################################### #
 
 # --------------------------------------------------------------------------- #
@@ -151,16 +149,16 @@ def reIndex(db, dirpath):
         try:
             for video in videos:
                 #Get video id and convert filename to absolute file path
-                youtubeID = video[0]
+                videoID = video[0]
                 info = list(video[1:])
                 info[4] = os.path.join(abspath, info[4])
                 info = tuple(info)
                 try:
                     insert = "INSERT INTO videos(id,channelID,title,timestamp,description,subtitles,filepath,thumb,thumbformat,duration,tags) VALUES(?,?,?,?,?,?,?,?,?,?,?);"
-                    db.execute(insert, (youtubeID, channelID) + info)
+                    db.execute(insert, (videoID, channelID) + info)
                 except sqlite3.Error:
                     update = "UPDATE videos SET channelID=?,title=?,timestamp=?,description=?,subtitles=?,filepath=?,thumb=?,thumbformat=?,duration=?,tags=? WHERE id = ?;"
-                    db.execute(update, (channelID,) + info + (youtubeID,))
+                    db.execute(update, (channelID,) + info + (videoID,))
         except sqlite3.Error:
             print("ERROR: Unable to write video info from '{}'".format(os.path.basename(relpath)))
             return
