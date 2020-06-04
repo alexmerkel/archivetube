@@ -5,6 +5,7 @@ import os
 import sys
 import sqlite3
 import argparse
+from server import Server
 
 
 # --------------------------------------------------------------------------- #
@@ -32,33 +33,47 @@ def main(args):
         #No database found, write message
         print("No database found, creating one")
 
-    #Connect to database
     try:
-        dbCon = createOrConnectDB(dbPath)
-        db = dbCon.cursor()
-    except sqlite3.Error as e:
-        print(e)
-        return
+        #Connect to database
+        try:
+            dbCon = createOrConnectDB(dbPath)
+            db = dbCon.cursor()
+        except sqlite3.Error as e:
+            print(e)
+            return
 
-    #Check if folder to add to database
-    if args.folder:
-        rel = os.path.relpath(args.folder, path)
-        if args.recursive:
-            print("Adding archives in subdirectories of '{}' to the database".format(rel))
-        else:
-            print("Adding archive '{}' to the database".format(rel))
-        cmd = "INSERT INTO archives(relpath, abspath, recursive) VALUES(?,?,?)"
-        db.execute(cmd, (rel, args.folder, args.recursive))
+        #Check if folder to add to database
+        if args.folder:
+            rel = os.path.relpath(args.folder, path)
+            if args.recursive:
+                print("Adding archives in subdirectories of '{}' to the database".format(rel))
+            else:
+                print("Adding archive '{}' to the database".format(rel))
+            cmd = "INSERT INTO archives(relpath, abspath, recursive) VALUES(?,?,?)"
+            db.execute(cmd, (rel, args.folder, args.recursive))
 
-    #Print status
-    print("(Re-)building index")
-    reIndex(db, path)
+        #Print status
+        print("(Re-)building index")
+        reIndex(db, path)
 
-
-    #Close database
-    if dbCon:
+        #Write changes to database
         dbCon.commit()
-        dbCon.close()
+    except KeyboardInterrupt:
+        print("Aborted!")
+
+    #Start server
+    try:
+        server = Server(db)
+        server.daemon = True
+        server.start()
+        server.join()
+    except KeyboardInterrupt:
+        #Stop server and exit
+        print("Exiting...")
+        #Close database
+        if dbCon:
+            dbCon.commit()
+            dbCon.close()
 # ########################################################################### #
 
 # --------------------------------------------------------------------------- #
@@ -219,8 +234,5 @@ def createOrConnectDB(path):
 
 # --------------------------------------------------------------------------- #
 if __name__ == "__main__":
-    try:
-        main(sys.argv)
-    except KeyboardInterrupt:
-        print("Aborted!")
+    main(sys.argv)
 # ########################################################################### #
