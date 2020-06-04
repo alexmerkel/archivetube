@@ -1,0 +1,13 @@
+<html>
+    <head>
+        {% if title %}
+        <title>{{ title }} - archivetube</title>
+        {% else %}
+        <title>archivetube</title>
+        {% endif %}
+        {% block header %}{% endblock %}
+    </head>
+    <body>
+        {% block content %}{% endblock %}
+    </body>
+</html>
