@@ -1,5 +1,11 @@
 {% extends "base.html" %}
 
-{% block content %}
-{{ msg|safe }}
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='channel.css') }}">
+{% endblock %}
+
+{% block body %}
+    <img class="channel banner" src="{{ url_for('banner', channelID=info.id) }}">
+    <h1>{{ info.name  }}</h1>
+    {% block content %}{% endblock %}
 {% endblock %}

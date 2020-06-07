@@ -54,7 +54,7 @@ def main(args):
 
         #Print status
         print("(Re-)building index")
-        reIndex(db, path)
+#TODO Reactivate        reIndex(db, path)
 
         #Write changes to database
         if dbCon:

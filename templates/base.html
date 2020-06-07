@@ -1,13 +1,10 @@
 <html>
     <head>
-        {% if title %}
-        <title>{{ title }} - archivetube</title>
-        {% else %}
-        <title>archivetube</title>
-        {% endif %}
-        {% block header %}{% endblock %}
+        <title>{{ title + " - archivetube" if title else "archivetube" }}</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='base.css') }}">
+        {% block head %}{% endblock %}
     </head>
     <body>
-        {% block content %}{% endblock %}
+        {% block body %}{% endblock %}
     </body>
 </html>
