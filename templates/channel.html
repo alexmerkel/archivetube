@@ -2,10 +2,22 @@
 
 {% block head %}
     <link rel="stylesheet" href="{{ url_for('static', filename='channel.css') }}">
+    <script src="{{ url_for('static', filename='channel.js') }}"></script>
+    <style>{% block menuselector %}{% endblock %}</style>
 {% endblock %}
 
 {% block body %}
-    <img class="channel banner" src="{{ url_for('banner', channelID=info.id) }}">
-    <h1>{{ info.name  }}</h1>
+    <div class="channel banner" style="background-image: url('{{ url_for('banner', channelID=info.id, w=2560, rh=0.1655, c='cc') }}')"></div>
+    <div class="channel titlebox">
+        <div class="channel profile"><img src="{{ url_for('profile', channelID=info.id, w=200, rh=1, c='cc') }}"/></div>
+        <p class="channel title">{{ info.name }}</p>
+    </div>
+    <div class="channel menubox" id="channelmenu">
+        <div class"channel menu">
+            <a id="link-channel-home" href="{{ url_for('channel-func', channelID=info.id, func='home') }}">Home</a>
+            <a id="link-channel-video" href="{{ url_for('channel-func', channelID=info.id, func='videos') }}">Videos</a>
+            <a id="link-channel-info" href="{{ url_for('channel-func', channelID=info.id, func='info') }}">Info</a>
+        </div>
+    </div>
     {% block content %}{% endblock %}
 {% endblock %}

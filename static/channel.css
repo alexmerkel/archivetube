@@ -2,8 +2,76 @@
 }
 
 .channel.banner {
-    width: calc(80%);
-    height: calc(20%);
-    object-fit: cover;
-    object-position: 50% 50%;
+    height: calc((100vw - var(--menu-width)) * 0.1655 - 1px);
+    display: block;
+    background-position: 0 0;
+    background-repeat: no-repeat;
+    background-size: 100% auto;
+    background-color: #919191;
 }
+
+.channel.titlebox {
+    height: 80px;
+    width: 80%;
+    max-width: calc((100vw - var(--menu-width)) - 2 * 20px);
+    margin: 20px auto;
+    align-items: center;
+    display: flex;
+    flex-direction: row;
+}
+
+.channel.profile {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin 0 25px 0 0;
+    display: inline-block;
+}
+
+.channel.profile img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.channel.title {
+    font-weight: 500;
+    font-size: 2em;
+    flex: 1;
+    display: flex;
+    margin: 0 0 0 20px;
+}
+
+.channel.menubox {
+    width: calc(100vw - var(--menu-width));
+    font-weight: 400;
+    font-size: 1em;
+    padding: 10px 0;
+    background-color: #FFF;
+}
+
+.channel.menubox.sticky {
+    position: fixed;
+    top: calc(3em + 2* 10px);
+}
+
+.channel.menubox > div {
+    width: 60%;
+    font-weight: 400;
+    font-size: 1em;
+    display: flex;
+    margin: 0 auto;
+}
+
+.channel.menubox > div > a {
+    text-decoration: none;
+    color: #000;
+    margin: 0 20px;
+}
+
+.channel.menubox > div > a:hover {
+    color: var(--color-mildred);
+}
+
+
