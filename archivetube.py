@@ -5,8 +5,12 @@ import os
 import sys
 import sqlite3
 import argparse
+import time
 from server import Server
 
+__version__ = "0.1.0"
+__dbversion__ = 1
+__archivedbversion__ = 2
 
 # --------------------------------------------------------------------------- #
 def main(args):
@@ -18,6 +22,7 @@ def main(args):
     parser = argparse.ArgumentParser(prog="archivetube", description="Serve a web interface for archived videos")
     parser.add_argument("-r", "--recursive", action="store_const", dest="recursive", const=True, default=False, help="Add all archives in subdirectories of the specified location to the database")
     parser.add_argument("-f", "--folder", action="store", dest="folder", help="Add an archive directory to the database (Path will be stored as relative to DIR)")
+    parser.add_argument("-V", "--version", action="version", version='%(prog)s {}'.format(__version__))
     parser.add_argument("DIR", help="The directory to work in")
 
     args = parser.parse_args()
@@ -27,16 +32,17 @@ def main(args):
     if not os.path.isdir(path):
         parser.error("An existing directory must be specified")
 
-    #Check if database exists
-    dbPath = os.path.join(path, "tube.db")
-    if not os.path.isfile(dbPath):
-        #No database found, write message
-        print("No database found, creating one")
-
     try:
-        #Connect to database
+        #Check if database exists
+        dbPath = os.path.join(path, "tube.db")
         try:
-            dbCon = createOrConnectDB(dbPath)
+            if os.path.isfile(dbPath):
+                #Connect to database
+                dbCon = connectDB(dbPath)
+            else:
+                #No database found
+                print("No database found, creating one")
+                dbCon = createDB(dbPath)
             db = dbCon.cursor()
         except sqlite3.Error as e:
             print(e)
@@ -54,7 +60,7 @@ def main(args):
 
         #Print status
         print("(Re-)building index")
-#TODO Reactivate        reIndex(db, path)
+        reIndex(db, path)
 
         #Write changes to database
         if dbCon:
@@ -89,6 +95,7 @@ def reIndex(db, dirpath):
     archives = []
     r = db.execute("SELECT relpath, recursive FROM archives;")
     a = r.fetchall()
+    del r
     for item in a:
         abspath = os.path.normpath(os.path.abspath(os.path.join(dirpath, item[0])))
         #Extract archives
@@ -100,7 +107,7 @@ def reIndex(db, dirpath):
                 archives.append(item[0])
     if not archives:
         print("ERROR: No archives in database")
-        return
+        sys.exit(1)
 
     #Copy info
     for relpath in archives:
@@ -113,22 +120,32 @@ def reIndex(db, dirpath):
             print("ERROR: Unable to open '{}' archive database".format(os.path.basename(relpath)))
             return
 
+        #Check archive db version
+        try:
+            version = archivedb.execute("SELECT dbversion FROM channel ORDER BY id DESC LIMIT 1;").fetchone()[0]
+        except (sqlite3.Error, TypeError):
+            version = 1
+        if version < __archivedbversion__:
+            print("ERROR: Archive database '{}' uses old database format. Please upgrade database using the latest version of ytarchiver".format(os.path.basename(relpath)))
+            continue
+
         #Read channel info from archive database
         try:
-            r = archivedb.execute("SELECT name,url,language,description,location,joined,links,profile,profileformat,banner,bannerformat FROM channel ORDER BY id DESC LIMIT 1;")
+            r = archivedb.execute("SELECT name,url,language,description,location,joined,links,profile,profileformat,banner,bannerformat,videos,lastupdate FROM channel ORDER BY id DESC LIMIT 1;")
             info = (relpath, abspath) + r.fetchone()
+            del r
         except sqlite3.Error:
             print("ERROR: Unable to read channel info from '{}' archive database".format(os.path.basename(relpath)))
             return
 
         #Add or update channel info and get channel id
         try:
-            insert = "INSERT INTO channels(relpath,abspath,name,url,language,description,location,joined,links,profile,profileformat,banner,bannerformat) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);"
+            insert = "INSERT INTO channels(relpath,abspath,name,url,language,description,location,joined,links,profile,profileformat,banner,bannerformat,videos,lastupdate) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);"
             db.execute(insert, info)
         except sqlite3.Error:
             try:
                 info = info[1:] + (relpath,)
-                update = "UPDATE channels SET abspath=?,name=?,url=?,language=?,description=?,location=?,joined=?,links=?,profile=?,profileformat=?,banner=?,bannerformat=? WHERE relpath = ?;"
+                update = "UPDATE channels SET abspath=?,name=?,url=?,language=?,description=?,location=?,joined=?,links=?,profile=?,profileformat=?,banner=?,bannerformat=?,videos=?,lastupdate=? WHERE relpath = ?;"
                 db.execute(update, info)
             except sqlite3.Error:
                 print("ERROR: Unable to write channel info from '{}'".format(os.path.basename(relpath)))
@@ -136,11 +153,13 @@ def reIndex(db, dirpath):
         cmd = "SELECT id FROM channels WHERE relpath = ?"
         r = db.execute(cmd, (relpath,)).fetchone()
         channelID = r[0]
+        del r
 
         #Read video info
         try:
             r = archivedb.execute("SELECT youtubeID,title,timestamp,description,subtitles,filename,thumb,thumbformat,duration,tags FROM videos;")
             videos = r.fetchall()
+            del r
         except sqlite3.Error:
             print("ERROR: Unable to read videos from '{}' archive database".format(os.path.basename(relpath)))
             return
@@ -165,10 +184,51 @@ def reIndex(db, dirpath):
 
         #Close archive database
         archivedb.close()
+
+    #Update info fields
+    videos = db.execute("SELECT count(*) FROM videos;").fetchone()[0]
+    channels = db.execute("SELECT count(*) FROM channels;").fetchone()[0]
+    db.execute("UPDATE info SET lastupdate = ?, videos = ?, channels = ? WHERE id = 1", (int(time.time()), videos, channels))
 # ########################################################################### #
 
 # --------------------------------------------------------------------------- #
-def createOrConnectDB(path):
+def connectDB(path):
+    '''Connect to exising db and upgrade it if necessary
+
+    :param path: Path at which to store the new database
+    :type path: string
+
+    :raises: :class:``sqlite3.Error: Unable to create database
+
+    :returns: Connection to database
+    :rtype: sqlite3.Connection
+    '''
+
+    #Connect to database
+    dbCon = sqlite3.connect(path)
+    db = dbCon.cursor()
+
+    #Get database version
+    try:
+        r = db.execute("SELECT dbversion FROM info ORDER BY id DESC LIMIT 1;")
+        version = r.fetchone()[0]
+        del r
+    except (sqlite3.Error, TypeError):
+        print("ERRPR: Unsupported database!")
+        sys.exit(1)
+
+    #Check if not uptodate
+    if version < __dbversion__:
+        print("Upgrading database")
+
+    dbCon.commit()
+
+    #Return database connection
+    return dbCon
+# ########################################################################### #
+
+# --------------------------------------------------------------------------- #
+def createDB(path):
     '''Create database with the required tables
 
     :param path: Path at which to store the new database
@@ -179,6 +239,14 @@ def createOrConnectDB(path):
     :returns: Connection to the newly created database
     :rtype: sqlite3.Connection
     '''
+    infoCmd = """ CREATE TABLE IF NOT EXISTS info (
+                       id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
+                       lastupdate INTEGER NOT NULL,
+                       channels INTEGER NOT NULL,
+                       videos INTEGER NOT NULL,
+                       dbversion INTEGER NOT NULL
+                  ); """
+
     archivesCmd = """ CREATE TABLE IF NOT EXISTS archives (
                        id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
                        relpath TEXT NOT NULL,
@@ -200,7 +268,9 @@ def createOrConnectDB(path):
                        profile BLOB,
                        profileformat TEXT,
                        banner BLOB,
-                       bannerformat TEXT
+                       bannerformat TEXT,
+                       videos INTEGER NOT NULL,
+                       lastupdate INTEGER NOT NULL
                   ); """
 
     videosCmd = """ CREATE TABLE IF NOT EXISTS videos (
@@ -223,9 +293,12 @@ def createOrConnectDB(path):
     #Set encoding
     db.execute("pragma encoding=UTF8")
     #Create tables
+    db.execute(infoCmd)
+    db.execute("INSERT INTO info(lastupdate, channels, videos, dbversion) VALUES(?,?,?,?)", (0, 0, 0, __dbversion__))
     db.execute(archivesCmd)
     db.execute(channelsCmd)
     db.execute(videosCmd)
+    dbCon.commit()
     #Return database connection
     return dbCon
 # ########################################################################### #
