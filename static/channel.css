@@ -93,6 +93,28 @@
     color: var(--color-mildhigh);
 }
 
+.channel.home.headline {
+    margin: 20px 0 0;
+}
+
+.channel.home.headline > a {
+    font-size: 1.5em;
+    text-decoration: none;
+    color: var(--color-text);
+    display: inline;
+}
+
+.channel.home.infoline {
+    margin: 20px 0 0;
+    padding: 0 0 1em;
+}
+
+.channel.home.infoline > p {
+    font-weight: 300;
+    margin: 0 3em  0 0;
+    display: inline;
+}
+
 .channel.videos.videosbox {
     margin: 0 50px 50px;
 }

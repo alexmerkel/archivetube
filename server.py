@@ -110,6 +110,7 @@ class Server(threading.Thread):
                 v["duration"] = self.secToTime(v["duration"])
                 v["agestring"] = self.timestampToHumanString(v["timestamp"]) + " ago"
                 v["timestamp"] = self.timestampToLocalTimeString(v["timestamp"])
+            data["lastupdate"] = self.timestampToHumanString(data["lastupdate"]) + " ago"
             #Render template
             return flask.render_template("channel-home.html", title=data["name"], info=data, videos=videos, base=self.baseinfo)
         #Get channel videos

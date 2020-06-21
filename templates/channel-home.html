@@ -8,7 +8,12 @@
 
 {% block content %}
 <div class="channel info infobox">
-<div class="channel info headline">Latest videos</div>
+<div class="channel home infoline">
+    <p>{{ info.videos }} {{ "videos" if info.videos > 1 else "video" }}</p><p>Last updated {{ info.lastupdate }}
+</div>
+<div class="channel home headline">
+    <a href="{{ url_for('channel-func', channelID=info.id, func='videos') }}">Latest videos</a>
+</div>
 <section class="channel videos grid">
 {% for video in videos %}
     <article class="channel videos grid video">
