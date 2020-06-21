@@ -19,7 +19,7 @@
         <img src="{{ url_for('thumb', videoID=video['id'], w=400, rh=0.5625, c='cc') }}">
         <div class="channel videos grid videotitle"><p title="{{ video['title'] }}">{{ video['title'] }}</p></div>
         </a>
-        <div class="channel videos grid videoinfo"><p>{{ video['duration'] }}</p><p title="{{ video['timestamp'] }}">{{ video['agestring'] }}</p></div>
+        <div class="channel videos grid videoinfo"><p>{{ video['duration'] }}</p><p title="{{ video['timestamp'] }}">{{ video['agestring'] }} ago</p></div>
     </article>
 {% endfor %}
 </section>

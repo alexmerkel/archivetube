@@ -9,7 +9,7 @@
 {% block content %}
 <div class="channel info infobox">
 <div class="channel home infoline">
-    <p>{{ info.videos }} {{ "videos" if info.videos > 1 else "video" }}</p><p>Last updated {{ info.lastupdate }}
+    <p>{{ info.videos }} {{ "videos" if info.videos > 1 else "video" }}</p><p>Last updated {{ info.lastupdate }} ago</p>
 </div>
 <div class="channel home headline">
     <a href="{{ url_for('channel-func', channelID=info.id, func='videos') }}">Latest videos</a>
@@ -21,7 +21,7 @@
         <img src="{{ url_for('thumb', videoID=video['id'], w=400, rh=0.5625, c='cc') }}">
         <div class="channel videos grid videotitle"><p title="{{ video['title'] }}">{{ video['title'] }}</p></div>
         </a>
-        <div class="channel videos grid videoinfo"><p>{{ video['duration'] }}</p><p title="{{ video['timestamp'] }}">{{ video['agestring'] }}</p></div>
+        <div class="channel videos grid videoinfo"><p>{{ video['duration'] }}</p><p title="{{ video['timestamp'] }}">{{ video['agestring'] }} ago</p></div>
     </article>
 {% endfor %}
 </section>
