@@ -1,0 +1,36 @@
+{% extends "channel.html" %}
+
+{% block menuselector %}
+    #link-channel-info {
+        color: var(--color-high);
+    }
+{% endblock %}
+
+{% block content %}
+<div class="channel info infobox">
+{% if info['description']  %}
+<div class="channel info headline">Description</div>
+<p class="channel info description">{{ info['description'] }}</p>
+{% endif %}
+<div class="channel info headline">Basic Information</div>
+<div class="channel info infoitems">
+{% if info['location']  %}
+<p class="channel info infotitle">Location:</p><p class="channel info infotext">{{ info['location'] }}</p>
+{% endif %}
+{% if info['joined']  %}
+<p class="channel info infotitle">Joined:</p><p class="channel info infotext">{{ info['joined'] }}</p>
+{% endif %}
+<p class="channel info infotitle">Videos:</p><p class="channel info infotext">{{ info['videos'] }}</p>
+<p class="channel info infotitle">Last Update:</p><p class="channel info infotext">{{ info['lastupdate'] }}</p>
+</div>
+{% if info['links']  %}
+<div class="channel info headline">Links</div>
+<div class="channel info infoitems">
+{% for link in info['links'] %}
+<a class="channel info link" href="{{ link['url'] }}">{{ link['pretty'] }}</a>
+{% endfor %}
+{% endif %}
+</div>
+</div>
+{% endblock %}
+

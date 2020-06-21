@@ -8,6 +8,7 @@ import argparse
 import time
 from server import Server
 
+__prog__ = "archivetube"
 __version__ = "0.1.0"
 __dbversion__ = 1
 __archivedbversion__ = 2
@@ -19,7 +20,7 @@ def main(args):
     :param args: The command line arguments given by the user
     :type args: list
     '''
-    parser = argparse.ArgumentParser(prog="archivetube", description="Serve a web interface for archived videos")
+    parser = argparse.ArgumentParser(prog=__prog__, description="Serve a web interface for archived videos")
     parser.add_argument("-r", "--recursive", action="store_const", dest="recursive", const=True, default=False, help="Add all archives in subdirectories of the specified location to the database")
     parser.add_argument("-f", "--folder", action="store", dest="folder", help="Add an archive directory to the database (Path will be stored as relative to DIR)")
     parser.add_argument("-V", "--version", action="version", version='%(prog)s {}'.format(__version__))
@@ -71,7 +72,8 @@ def main(args):
 
     #Start server
     try:
-        server = Server(dbPath)
+        baseinfo = {"name": __prog__, "version": __version__}
+        server = Server(dbPath, baseinfo)
         server.daemon = True
         server.start()
         server.join()

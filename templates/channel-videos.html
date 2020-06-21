@@ -1,0 +1,31 @@
+{% extends "channel.html" %}
+
+{% block menuselector %}
+    #link-channel-videos {
+        color: var(--color-high);
+    }
+{% endblock %}
+
+{% block content %}
+<div class="channel videos videosbox">
+<div class="channel videos videosnav">
+    <a class="channel videos videosnav link {{ "disabled" if info['page'] == 1 else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']-1) }}">Prev</a>
+    <a class="channel videos videosnav link {{ "disabled" if info['page'] == info['maxpage'] else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']+1) }}">Next</a>
+</div>
+<section class="channel videos grid">
+{% for video in videos %}
+    <article class="channel videos grid video">
+        <a href="{{ url_for('watch', v=video['id']) }}">
+        <img src="{{ url_for('thumb', videoID=video['id'], w=400, rh=0.5625, c='cc') }}">
+        <div class="channel videos grid videotitle"><p title="{{ video['title'] }}">{{ video['title'] }}</p></div>
+        </a>
+        <div class="channel videos grid videoinfo"><p>{{ video['duration'] }}</p><p title="{{ video['timestamp'] }}">{{ video['agestring'] }}</p></div>
+    </article>
+{% endfor %}
+</section>
+<div class="channel videos videosnav">
+    <a class="channel videos videosnav link {{ "disabled" if info['page'] == 1 else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']-1) }}">Prev</a>
+    <a class="channel videos videosnav link {{ "disabled" if info['page'] == info['maxpage'] else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']+1) }}">Next</a>
+</div>
+</div>
+{% endblock %}

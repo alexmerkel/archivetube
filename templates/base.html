@@ -1,18 +1,19 @@
 <html>
     <head>
-        <title>{{ title + " - archivetube" if title else "archivetube" }}</title>
+        <title>{{ title + " - " + base.name if title else base.name }}</title>
         <link rel="icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
         <link rel="alternate icon" href="{{ url_for('static', filename='icon.png') }}" type="image/png">
         <link rel="stylesheet" href="{{ url_for('static', filename='base.css') }}">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         {% block head %}{% endblock %}
     </head>
     <body>
         <div class="main wrapper">
             <div class="main titlebar" id="maintitlebar">
                 <div class="main logo"></div>
-                <div class="main name"><p>archivetube</p></div>
+                <div class="main name"><a href="/">{{ base.name }}</a></div>
                 <div class="main spacer"></div>
-                <div class="main version"><p>v0.0.0</p></div>
+                <div class="main version"><p>v{{ base.version }}</p></div>
             </div>
             <div class="main menu">
             </div>

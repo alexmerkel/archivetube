@@ -2,9 +2,27 @@
 
 {% block menuselector %}
     #link-channel-home {
-        color: var(--color-red);
+        color: var(--color-high);
     }
 {% endblock %}
 
 {% block content %}
+<div class="channel info infobox">
+<div class="channel info headline">Latest videos</div>
+<section class="channel videos grid">
+{% for video in videos %}
+    <article class="channel videos grid video">
+        <a href="{{ url_for('watch', v=video['id']) }}">
+        <img src="{{ url_for('thumb', videoID=video['id'], w=400, rh=0.5625, c='cc') }}">
+        <div class="channel videos grid videotitle"><p title="{{ video['title'] }}">{{ video['title'] }}</p></div>
+        </a>
+        <div class="channel videos grid videoinfo"><p>{{ video['duration'] }}</p><p title="{{ video['timestamp'] }}">{{ video['agestring'] }}</p></div>
+    </article>
+{% endfor %}
+</section>
+{% if info['description']  %}
+<div class="channel info headline">Description</div>
+<p class="channel info description">{{ info['description'] }}</p>
+{% endif %}
+</div>
 {% endblock %}
