@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 ''' Front-end server for archivetube using flask '''
 
+import os
 import io
 import threading
 import sqlite3
 import math
+import mimetypes
+import re
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
+from pycountry import languages
 from PIL import Image
 import flask
 import waitress
@@ -28,6 +32,8 @@ class Server(threading.Thread):
         '''
         #Call superclass init
         super(Server, self).__init__(*args, **kw)
+        #Define url finder from https://gist.github.com/gruber/8891611
+        self.urlfinder = re.compile("(?i)\\b((?:https?:(?:\\/{1,3}|[a-z0-9%])|[a-z0-9.\\-]+[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\\/)(?:[^\\s()<>{}\\[\\]]+|\\([^\\s()]*?\\([^\\s()]+\\)[^\\s()]*?\\)|\\([^\\s]+?\\))+(?:\\([^\\s()]*?\\([^\\s()]+\\)[^\\s()]*?\\)|\\([^\\s]+?\\)|[^\\s`!()\\[\\]{};:'\".,<>?\u00AB\u00BB\u201C\u201D\u2018\u2019])|(?:(?<!@)[a-z0-9]+(?:[.\\-][a-z0-9]+)*[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\\b\\/?(?!@)))")
         #Base info dict
         self.baseinfo = baseinfo
         #Setup server
@@ -41,6 +47,8 @@ class Server(threading.Thread):
         self.app.add_url_rule("/channel/<channelID>/<func>/", "channel-func", self.getChannel, defaults={"page": None})
         self.app.add_url_rule("/channel/<channelID>/<func>/page/<int:page>/", "channel-page", self.getChannel)
         self.app.add_url_rule("/res/thumb/<videoID>", "thumb", self.getThumbnail)
+        self.app.add_url_rule("/res/video/<videoID>", "video", self.getVideo)
+        self.app.add_url_rule("/res/subtitles/<videoID>", "subtitles", self.getSubtitles)
         self.app.add_url_rule("/res/profile/<channelID>", "profile", self.getProfile)
         self.app.add_url_rule("/res/banner/<channelID>", "banner", self.getBanner)
     # ########################################################################### #
@@ -72,14 +80,80 @@ class Server(threading.Thread):
         if not videoID:
             return flask.redirect(flask.url_for("home"))
 
-        #Get info from database
-        r = self.db.execute("SELECT channelID,title,timestamp,description,subtitles,filepath,duration,tags FROM videos WHERE id = ?", (videoID,))
+        #Get video info from database
+        r = self.db.execute("SELECT id,channelID,title,timestamp,description,subtitles,filepath,tags FROM videos WHERE id = ?", (videoID,))
         video = r.fetchone()
         del r
-        #Check if video with this id is in database
         if not video:
             return "Video not found", 404
-        return "{}".format(video) #Just for testing
+        video = dict(video)
+        #Get channel from database
+        r = self.db.execute("SELECT id,name,language,videos,lastupdate FROM channels WHERE id = ?", (video["channelID"],))
+        channel = r.fetchone()
+        del r
+        if not channel:
+            return "Video channel not found", 404
+        channel = dict(channel)
+        #Convert timestamp
+        channel["lastupdate"] = self.timestampToHumanString(channel["lastupdate"])
+        #Get channel language code and name
+        if video["subtitles"]:
+            if channel["language"]:
+                lang = languages.get(alpha_2=channel["language"])
+                channel["language"] = lang.name
+                channel["lang"] = lang.alpha_2
+            else:
+                video["subtitles"] = False
+        #Get next video info from database
+        r = self.db.execute("SELECT id,title,timestamp,duration FROM videos WHERE channelID = ? AND timestamp > ? ORDER BY timestamp ASC LIMIT 1;", (channel["id"], video["timestamp"]))
+        nextVideo = r.fetchone()
+        del r
+        if nextVideo:
+            nextVideo = dict(nextVideo)
+            #Convert timestamp
+            nextVideo["duration"] = self.secToTime(nextVideo["duration"])
+            nextVideo["agestring"] = self.timestampToHumanString(nextVideo["timestamp"])
+            nextVideo["timestamp"] = self.timestampToLocalTimeString(nextVideo["timestamp"])
+        else:
+            nextVideo = None
+        #Get previous video info from database
+        r = self.db.execute("SELECT id,title,timestamp,duration FROM videos WHERE channelID = ? AND timestamp < ? ORDER BY timestamp DESC LIMIT 1;", (channel["id"], video["timestamp"]))
+        previousVideo = r.fetchone()
+        del r
+        if previousVideo:
+            previousVideo = dict(previousVideo)
+            #Convert timestamp
+            previousVideo["duration"] = self.secToTime(previousVideo["duration"])
+            previousVideo["agestring"] = self.timestampToHumanString(previousVideo["timestamp"])
+            previousVideo["timestamp"] = self.timestampToLocalTimeString(previousVideo["timestamp"])
+        else:
+            previousVideo = None
+        #Get latest video info from database
+        r = self.db.execute("SELECT id,title,timestamp,duration FROM videos WHERE channelID = ? ORDER BY timestamp DESC LIMIT 1", (channel["id"],))
+        latestVideo = r.fetchone()
+        del r
+        if latestVideo:
+            latestVideo = dict(latestVideo)
+            #Convert timestamp
+            latestVideo["duration"] = self.secToTime(latestVideo["duration"])
+            latestVideo["agestring"] = self.timestampToHumanString(latestVideo["timestamp"])
+            latestVideo["timestamp"] = self.timestampToLocalTimeString(latestVideo["timestamp"])
+            #Only show latest video if this or the next video is not the latest
+            if latestVideo["id"] == video["id"] or latestVideo["id"] == nextVideo["id"]:
+                latestVideo = None
+        else:
+            latestVideo = None
+        #Only interested if subtitles exist or not
+        video["subtitles"] = bool(video["subtitles"])
+        #Convert timestamp
+        video["agestring"] = self.timestampToHumanString(video["timestamp"])
+        video["timestamp"] = self.timestampToLocalTimeString(video["timestamp"])
+        #Get mime type
+        video["mimetype"] = mimetypes.guess_type(video["filepath"])[0]
+        #Convert links in description
+        video["description"] = self.urlfinder.sub(r'<a href="\1">\1</a>', video["description"])
+        #Render template
+        return flask.render_template("watch.html", title=video["title"], video=video, nextVideo=nextVideo, previousVideo=previousVideo, latestVideo=latestVideo, channel=channel, base=self.baseinfo)
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
@@ -101,8 +175,8 @@ class Server(threading.Thread):
         # Get channel home
         if func == "home":
             #Get 4 latest videos
-            cmd = "SELECT id,title,timestamp,duration FROM videos WHERE channelID = {} ORDER BY timestamp DESC LIMIT {}".format(channelID, __latestVideos__)
-            r = self.db.execute(cmd)
+            cmd = "SELECT id,title,timestamp,duration FROM videos WHERE channelID = ? ORDER BY timestamp DESC LIMIT {}".format(__latestVideos__)
+            r = self.db.execute(cmd, (channelID,))
             videos = [dict(v) for v in r.fetchall()]
             del r
             #Convert timestamp and duration
@@ -111,6 +185,8 @@ class Server(threading.Thread):
                 v["agestring"] = self.timestampToHumanString(v["timestamp"])
                 v["timestamp"] = self.timestampToLocalTimeString(v["timestamp"])
             data["lastupdate"] = self.timestampToHumanString(data["lastupdate"])
+            #Convert links in description
+            data["description"] = self.urlfinder.sub(r'<a href="\1">\1</a>', data["description"])
             #Render template
             return flask.render_template("channel-home.html", title=data["name"], info=data, videos=videos, base=self.baseinfo)
         #Get channel videos
@@ -130,8 +206,8 @@ class Server(threading.Thread):
             else:
                 sorting = "DESC"
             #Query database
-            cmd = "SELECT id,title,timestamp,duration FROM videos WHERE channelID = {} ORDER BY timestamp {} LIMIT {} OFFSET {}".format(channelID, sorting, __videosPerPage__, (page - 1)*__videosPerPage__)
-            r = self.db.execute(cmd)
+            cmd = "SELECT id,title,timestamp,duration FROM videos WHERE channelID = ? ORDER BY timestamp {} LIMIT {} OFFSET {}".format(sorting, __videosPerPage__, (page - 1)*__videosPerPage__)
+            r = self.db.execute(cmd, (channelID,))
             videos = [dict(v) for v in r.fetchall()]
             del r
             #Convert timestamp and duration
@@ -152,6 +228,8 @@ class Server(threading.Thread):
                     l = l.split('\t')
                     links.append({"pretty": l[0], "url": l[1]})
                 data["links"] = links
+            #Convert links in description
+            data["description"] = self.urlfinder.sub(r'<a href="\1">\1</a>', data["description"])
             #Render template
             return flask.render_template("channel-info.html", title=data["name"] + " - Info", info=data, base=self.baseinfo)
         #Unknown func, return 404
@@ -269,6 +347,53 @@ class Server(threading.Thread):
         #Respond with image
         r = flask.make_response(img)
         r.headers.set('Content-Type', data["bannerformat"])
+        r.cache_control.public = True
+        r.cache_control.max_age = 300
+        return r
+    # ########################################################################### #
+
+    # --------------------------------------------------------------------------- #
+    def getVideo(self, videoID):
+        '''
+        Return a video file
+        '''
+        #If no id supplied, return 404
+        if not videoID:
+            return '', 404
+
+        #Get info from database
+        r = self.db.execute("SELECT filepath FROM videos WHERE id = ?", (videoID,))
+        data = r.fetchone()
+        del r
+        #If not found, return 404
+        if not data or not data[0]:
+            return '', 404
+
+        #Respond with video
+        return flask.send_from_directory(os.path.dirname(data[0]), os.path.basename(data[0]))
+    # ########################################################################### #
+
+    # --------------------------------------------------------------------------- #
+    def getSubtitles(self, videoID):
+        '''
+        Return subtitles of a video of they have any
+        '''
+        #If no id supplied, return 404
+        if not videoID:
+            return '', 404
+
+
+        #Get info from database
+        r = self.db.execute("SELECT subtitles FROM videos WHERE id = ?", (videoID,))
+        data = r.fetchone()
+        del r
+        #If not found, return 404
+        if not data or not data[0]:
+            return '', 404
+
+        #Respond with subtitles
+        r = flask.make_response(data[0])
+        r.headers.set('Content-Type', "text/vtt")
         r.cache_control.public = True
         r.cache_control.max_age = 300
         return r

@@ -225,12 +225,22 @@
     text-align: justify;
     padding: 1em 0;
     margin: 0;
+    white-space: pre-line;
 }
 
 @media screen and (max-width: 720px) {
     .channel.info.description {
         width: 100%;
     }
+}
+
+.channel.info.description > a {
+    text-decoration: none;
+    color: var(--color-text);
+}
+
+.channel.info.description > a:hover {
+    color: var(--color-mildhigh);
 }
 
 .channel.info.infoitems {

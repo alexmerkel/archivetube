@@ -27,7 +27,7 @@
 </section>
 {% if info['description']  %}
 <div class="channel info headline">Description</div>
-<p class="channel info description">{{ info['description'] }}</p>
+<p class="channel info description">{{ info['description']|safe }}</p>
 {% endif %}
 </div>
 {% endblock %}
