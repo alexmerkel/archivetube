@@ -1,0 +1,92 @@
+.home.channelsbox {
+    margin: 50px 50px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 450px));
+    grid-gap: 50px;
+    justify-content: space-evenly;
+}
+
+@media screen and (max-width: 550px) {
+    .home.channelsbox {
+        margin: 50px 0;
+    }
+}
+
+.home.channel.channelbox {
+    width: 100%;
+}
+
+.home.channel.channelbox > a {
+    color: var(--color-text);
+    text-decoration: none;
+}
+
+.home.channel.banner {
+    height: 150px;
+    width: 100%;
+    display: block;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: auto;
+    background-color: #919191;
+}
+
+.home.channel.titlebox {
+    width: 90%;
+    margin: 10px auto 0;
+    align-items: center;
+    display: flex;
+    flex-direction: row;
+}
+
+.home.channel.profile {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin 0 25px 0 0;
+    display: inline-block;
+}
+
+.home.channel.profile img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.home.channel.title {
+    font-weight: 500;
+    font-size: 1.5em;
+    flex: 1;
+    margin: 0 0 0 20px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+@media screen and (max-width: 720px) {
+    .home.channel.title {
+        font-size: 1.2em;
+    }
+}
+
+.home.channel.title > p{
+    margin: 0;
+}
+
+.home.channel.channelinfo {
+    width: calc(90% - 80px);
+    margin: 0 auto;
+    padding: 0 0 0 80px;
+    font-weight: 400;
+    font-size: 0.8em;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.home.channel.channelinfo > p{
+    color: var(--color-mildtext);
+    margin: 0;
+}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="home channelsbox">
+{% for channel in channels %}
+<div class="home channel channelbox">
+    <a href="{{ url_for('channel', channelID=channel.id) }}">
+    <div class="home channel banner" style="background-image: url('{{ url_for('banner', channelID=channel.id, h=150, rw=1/0.1655, c='cc') }}')"></div>
+    <div class="home channel titlebox">
+    <div class="home channel profile"><img src="{{ url_for('profile', channelID=channel.id, w=200, rh=1, c='cc') }}"/></div>
+    <div class="home channel title"><p title="{{ channel.name }}">{{ channel.name }}</p></div>
+    </div>
+    </a>
+    <div class="home channel channelinfo"><p>{{ channel.videos }} {{ "videos" if channel.videos > 1 else "video" }}</p><p title="{{ channel.lastupdate }}">Last updated {{ channel.agostring }} ago</p></div>
+</div>
+{% endfor %}
+</div>
+{% endblock %}

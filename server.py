@@ -66,7 +66,21 @@ class Server(threading.Thread):
         '''
         Return the landing page
         '''
-        return "archivetube home" #Just for testing
+        #Get channel info from database
+        r = self.db.execute("SELECT id,name,videos,lastupdate FROM channels ORDER BY name COLLATE NOCASE ASC")
+        data = r.fetchall()
+        del r
+        channels = []
+        for c in data:
+            if c and c["name"]:
+                c = dict(c)
+                c["agostring"] = self.timestampToHumanString(c["lastupdate"])
+                c["lastupdate"] = self.timestampToLocalTimeString(c["lastupdate"])
+                channels.append(c)
+        if not channels:
+            return 'No channel data in database', 404
+        #Render template
+        return flask.render_template("home.html", channels=channels, base=self.baseinfo)
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
@@ -490,14 +504,15 @@ class Server(threading.Thread):
                 img = img.resize(tuple(int(i) for i in (rWidth, rHeight)))
         #Check if the desired size is smaller than actual and no fixed size was given
         if dWidth < iWidth or dHeight < iHeight:
-            if not width:
-                rHeight = dHeight
-                rWidth = rHeight * iRel
-                img = img.resize(tuple(int(i) for i in (rWidth, rHeight)))
-            elif not height:
-                rWidth = dWidth
-                rHeight = rWidth / iRel
-                img = img.resize(tuple(int(i) for i in (rWidth, rHeight)))
+            if not (width and height):
+                if iWidth > iHeight:
+                    rWidth = dWidth
+                    rHeight = rWidth / iRel
+                    img = img.resize(tuple(int(i) for i in (rWidth, rHeight)))
+                else:
+                    rHeight = dHeight
+                    rWidth = rHeight * iRel
+                    img = img.resize(tuple(int(i) for i in (rWidth, rHeight)))
         #Get crop box
         (iWidth, iHeight) = img.size
         ch = iWidth - dWidth
