@@ -128,6 +128,62 @@ img {
     background-color: var(--color-bg);
 }
 
+.main.menuitems {
+    margin: 30px;
+    display: flex;
+    flex-direction: column;
+
+}
+
+.main.menuitems > a {
+    color: var(--color-text);
+    text-decoration: none;
+}
+
+.main.menuitem {
+    margin: 10px 0;
+    display: flex;
+    flex-direction: row;
+    align-content: center;
+}
+
+.main.menuitem.profile {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: auto 0;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.main.menuitem.profile > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.main.menuitem.title {
+    font-weight: 500;
+    font-size: 0.9em;
+    flex: 1;
+    margin: 0 0 0 10px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.main.menuitem.title > p{
+    margin: auto 0;
+}
+
+@media screen and (max-width: 1050px) {
+    .main.menuitem.title {
+        display: none;
+    }
+}
+
 .main.body {
     width: calc(100vw - var(--menu-width));
     position: fixed;

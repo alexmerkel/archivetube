@@ -16,6 +16,16 @@
                 <div class="main version"><p>v{{ base.version }}</p></div>
             </div>
             <div class="main menu">
+            <div class="main menuitems">
+            {% for channel in base.channels %}
+            <a href="{{ url_for('channel', channelID=channel.id) }}" title="{{ channel.name }}">
+            <div class="main menuitem">
+                <div class="main menuitem profile"><img src="{{ url_for('profile', channelID=channel.id, w=60, rh=1, c='cc') }}"/></div>
+                <div class="main menuitem title"><p>{{ channel.name }}</p></div>
+            </div>
+            </a>
+            {% endfor %}
+            </div>
             </div>
             <div class="main body" id="maincontent">{% block body %}{% endblock %}</div>
         </div>
