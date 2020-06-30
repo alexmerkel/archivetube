@@ -7,8 +7,8 @@ import threading
 import sqlite3
 import math
 import mimetypes
+import time
 from datetime import datetime, timezone
-from dateutil.relativedelta import relativedelta
 from pycountry import languages
 from PIL import Image
 import flask
@@ -93,8 +93,14 @@ class Server(threading.Thread):
                 channels.append(c)
         if not channels:
             return self.getErrorPage(404, "No channel data in database")
+        #Get general info from database
+        r = self.db.execute("SELECT lastupdate,channels,videos FROM info ORDER BY id DESC LIMIT 1;")
+        info = dict(r.fetchone())
+        del r
+        info["agostring"] = self.timestampToHumanString(info["lastupdate"])
+        info["lastupdate"] = self.timestampToLocalTimeString(info["lastupdate"])
         #Render template
-        return flask.render_template("home.html", channels=channels, base=self.baseinfo)
+        return flask.render_template("home.html", channels=channels, info=info, base=self.baseinfo)
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
@@ -610,14 +616,46 @@ class Server(threading.Thread):
         :returns: Human readable time difference
         :rtype: string
         '''
-        #Get datetime objects
-        dt1 = datetime.fromtimestamp(timestamp)
-        dt2 = datetime.utcnow()
-        #Deffine Lambda
-        attrs = ['years', 'months', 'days', 'hours', 'minutes']
-        humanConverter = lambda delta: ['%d %s' % (getattr(delta, attr), getattr(delta, attr) > 1 and attr or attr[:-1]) for attr in attrs if getattr(delta, attr)]
+        #Get times
+        dt1 = int(timestamp)
+        dt2 = int(time.time())
+        #Get delta in minutes
+        delta = abs(dt2 - dt1)
         #Get human string elements
-        humanElements = humanConverter(relativedelta(dt2, dt1))
+        humanElements = []
+        if delta >= 31536000: #A year
+            t = delta // 31536000
+            delta = delta % 31536000
+            s = "years" if t > 1 else "year"
+            humanElements.append("{} {}".format(t, s))
+        if delta >= 2592000: #A month
+            t = delta // 2592000
+            delta = delta % 2592000
+            s = "months" if t > 1 else "month"
+            humanElements.append("{} {}".format(t, s))
+        if delta >= 604800: #A week
+            t = delta // 604800
+            delta = delta % 604800
+            s = "weeks" if t > 1 else "week"
+            humanElements.append("{} {}".format(t, s))
+        if delta >= 86400: #A day
+            t = delta // 86400
+            delta = delta % 86400
+            s = "days" if t > 1 else "day"
+            humanElements.append("{} {}".format(t, s))
+        if delta >= 3600: #An hour
+            t = delta // 3600
+            delta = delta % 3600
+            s = "hours" if t > 1 else "hour"
+            humanElements.append("{} {}".format(t, s))
+        if delta >= 60: #A minute
+            t = delta // 60
+            delta = delta % 60
+            s = "minutes" if t > 1 else "minute"
+            humanElements.append("{} {}".format(t, s))
+        #Add remaining seconds
+        s = "seconds" if delta > 1 else "second"
+        humanElements.append("{} {}".format(delta, s))
         #Return most significant
         return humanElements[0]
     # ########################################################################### #

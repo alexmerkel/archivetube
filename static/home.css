@@ -1,3 +1,31 @@
+.home.statistics {
+    margin: 50px 50px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    color: var(--color-mildtext);
+    font-weight: 500;
+    font-size: 1.5em;
+}
+
+@media screen and (max-width: 1050px) {
+    .home.statistics {
+        margin: 50px 30px;
+        font-size: 1.2em;
+    }
+}
+
+@media screen and (max-width: 720px) {
+    .home.statistics {
+        margin: 50px 10px;
+        font-size: 0.8em;
+    }
+}
+
+.home.statistics > p {
+    margin: 0 10px;
+}
+
 .home.channelsbox {
     margin: 50px 50px;
     display: grid;
