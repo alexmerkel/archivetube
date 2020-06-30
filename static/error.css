@@ -1,0 +1,37 @@
+.error.box{
+    width: 50vw;
+    max-width: 50vw;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    margin: 50px auto;
+}
+
+@media screen and (max-width: 720px) {
+    .error.box{
+        width: 80vw;
+        max-width: 80vw;
+    }
+}
+
+.error.image {
+    width: 50%;
+    height: 0;
+    padding-top: 46.59%;
+    margin: 0 auto;
+    display: block;
+    background-image: url(error.svg);
+    background-repeat: no-repeat;
+    background-size: 100%;
+}
+
+.error.message {
+    font-weight: 500;
+    font-size: 2em;
+    text-align: justify;
+    margin: 50px auto;
+}
+
+.error.message > p {
+    margin: 0;
+}

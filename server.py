@@ -46,8 +46,7 @@ class Server(threading.Thread):
         for c in data:
             if c and c["name"]:
                 channels.append(dict(c))
-        if channels:
-            self.baseinfo["channels"] = channels
+        self.baseinfo["channels"] = channels
         #Setup server
         self.app = flask.Flask("archivetube")
         #Add routes
@@ -61,6 +60,11 @@ class Server(threading.Thread):
         self.app.add_url_rule("/res/subtitles/<videoID>", "subtitles", self.getSubtitles)
         self.app.add_url_rule("/res/profile/<channelID>", "profile", self.getProfile)
         self.app.add_url_rule("/res/banner/<channelID>", "banner", self.getBanner)
+        #Add error handlers
+        self.app.register_error_handler(403, self.getError)
+        self.app.register_error_handler(404, self.getError)
+        self.app.register_error_handler(410, self.getError)
+        self.app.register_error_handler(500, self.getError)
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
@@ -88,7 +92,7 @@ class Server(threading.Thread):
                 c["lastupdate"] = self.timestampToLocalTimeString(c["lastupdate"])
                 channels.append(c)
         if not channels:
-            return 'No channel data in database', 404
+            return self.getErrorPage(404, "No channel data in database")
         #Render template
         return flask.render_template("home.html", channels=channels, base=self.baseinfo)
     # ########################################################################### #
@@ -109,14 +113,14 @@ class Server(threading.Thread):
         video = r.fetchone()
         del r
         if not video:
-            return "Video not found", 404
+            return self.getErrorPage(404, "Video not found")
         video = dict(video)
         #Get channel from database
         r = self.db.execute("SELECT id,name,language,videos,lastupdate FROM channels WHERE id = ?", (video["channelID"],))
         channel = r.fetchone()
         del r
         if not channel:
-            return "Video channel not found", 404
+            return self.getErrorPage(404, "Video channel not found")
         channel = dict(channel)
         #Convert timestamp
         channel["lastupdate"] = self.timestampToHumanString(channel["lastupdate"])
@@ -187,14 +191,14 @@ class Server(threading.Thread):
         '''
         #If no id supplied, return 404
         if not channelID:
-            return '', 404
+            return self.getErrorPage(404, "No channel ID specified")
 
         #Get info from database
         r = self.db.execute("SELECT id,name,description,location,joined,links,videos,lastupdate FROM channels WHERE id = ?", (channelID,))
         data = r.fetchone()
         del r
         if not data or not data["name"]:
-            return '', 404
+            return self.getErrorPage(404, "Unable to find channel")
         data = dict(data)
         # Get channel home
         if func == "home":
@@ -256,8 +260,8 @@ class Server(threading.Thread):
             data["description"] = self.urlfinder.sub(r'<a href="\1">\1</a>', data["description"])
             #Render template
             return flask.render_template("channel-info.html", title=data["name"] + " - Info", info=data, base=self.baseinfo)
-        #Unknown func, return 404
-        return '', 404
+        #Unknown func, redirect to channel home
+        return flask.redirect(flask.url_for("channel", channelID=channelID))
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
@@ -421,6 +425,24 @@ class Server(threading.Thread):
         r.cache_control.public = True
         r.cache_control.max_age = 300
         return r
+    # ########################################################################### #
+
+    # --------------------------------------------------------------------------- #
+    def getError(self, error):
+        '''
+        Return the error page
+        '''
+        #Render template
+        return self.getErrorPage(error.code, error.description)
+    # ########################################################################### #
+
+    # --------------------------------------------------------------------------- #
+    def getErrorPage(self, code, description):
+        '''
+        Return the error page
+        '''
+        #Render template
+        return flask.render_template("error.html", error=description, base=self.baseinfo), code
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
