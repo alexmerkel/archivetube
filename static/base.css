@@ -112,10 +112,12 @@ img {
     margin: 0 10px;
 }
 
-.main.version > p {
+.main.version > a {
     vertical-align: middle;
     display: table-cell;
     text-align: right;
+    text-decoration: none;
+    color: var(--color-text);
 }
 
 .main.menu {
