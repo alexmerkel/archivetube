@@ -42,7 +42,7 @@ class Server(threading.Thread):
         self.db.row_factory = sqlite3.Row
         #Base info dict
         self.baseinfo = baseinfo
-        r = self.db.execute("SELECT id,name FROM channels ORDER BY name COLLATE NOCASE ASC")
+        r = self.db.execute("SELECT id,name FROM channels WHERE active = 1 ORDER BY name COLLATE NOCASE ASC")
         data = r.fetchall()
         del r
         channels = []
@@ -86,7 +86,7 @@ class Server(threading.Thread):
         Return the landing page
         '''
         #Get channel info from database
-        r = self.db.execute("SELECT id,name,videos,lastupdate FROM channels ORDER BY name COLLATE NOCASE ASC")
+        r = self.db.execute("SELECT id,name,videos,lastupdate FROM channels WHERE active = 1 ORDER BY name COLLATE NOCASE ASC")
         data = r.fetchall()
         del r
         channels = []

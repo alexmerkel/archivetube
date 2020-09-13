@@ -10,7 +10,7 @@ from server import Server
 
 __prog__ = "archivetube"
 __version__ = "0.2.0"
-__dbversion__ = 2
+__dbversion__ = 3
 __archivedbversion__ = 4
 
 # --------------------------------------------------------------------------- #
@@ -111,6 +111,9 @@ def reIndex(db, dirpath):
         print("ERROR: No archives in database")
         sys.exit(1)
 
+    #Set all channels to inactive
+    db.execute("UPDATE channels SET active = 0;")
+
     #Copy info
     for relpath in archives:
         abspath = os.path.normpath(os.path.abspath(os.path.join(dirpath, relpath)))
@@ -142,12 +145,12 @@ def reIndex(db, dirpath):
 
         #Add or update channel info and get channel id
         try:
-            insert = "INSERT INTO channels(relpath,abspath,name,url,language,description,location,joined,links,profile,profileformat,banner,bannerformat,videos,lastupdate) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);"
+            insert = "INSERT INTO channels(relpath,abspath,name,url,language,description,location,joined,links,profile,profileformat,banner,bannerformat,videos,lastupdate,active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1);"
             db.execute(insert, info)
         except sqlite3.Error:
             try:
                 info = info[1:] + (relpath,)
-                update = "UPDATE channels SET abspath=?,name=?,url=?,language=?,description=?,location=?,joined=?,links=?,profile=?,profileformat=?,banner=?,bannerformat=?,videos=?,lastupdate=? WHERE relpath = ?;"
+                update = "UPDATE channels SET abspath=?,name=?,url=?,language=?,description=?,location=?,joined=?,links=?,profile=?,profileformat=?,banner=?,bannerformat=?,videos=?,lastupdate=?,active=1 WHERE relpath = ?;"
                 db.execute(update, info)
             except sqlite3.Error:
                 print("ERROR: Unable to write channel info from '{}'".format(os.path.basename(relpath)))
@@ -189,7 +192,7 @@ def reIndex(db, dirpath):
 
     #Update info fields
     videos = db.execute("SELECT count(*) FROM videos;").fetchone()[0]
-    channels = db.execute("SELECT count(*) FROM channels;").fetchone()[0]
+    channels = db.execute("SELECT count(*) FROM channels WHERE active = 1;").fetchone()[0]
     db.execute("UPDATE info SET lastupdate = ?, videos = ?, channels = ? WHERE id = 1", (int(time.time()), videos, channels))
 # ########################################################################### #
 
@@ -239,6 +242,14 @@ def connectDB(path):
                 #Update db version
                 version = 2
                 db.execute("UPDATE info SET dbversion = 2 WHERE id = 1")
+                dbCon.commit()
+            #Perform upgrade to version 3
+            if version < 3:
+                #Add active channel column
+                db.execute('ALTER TABLE channels ADD COLUMN active INTEGER NOT NULL DEFAULT 0;')
+                #Update db version
+                version = 3
+                db.execute("UPDATE info SET dbversion = 3 WHERE id = 1")
                 dbCon.commit()
         except sqlite3.Error as e:
             print("ERROR: Unable to upgrade database (\"{}\")".format(e))
@@ -295,7 +306,8 @@ def createDB(path):
                        banner BLOB,
                        bannerformat TEXT,
                        videos INTEGER NOT NULL,
-                       lastupdate INTEGER NOT NULL
+                       lastupdate INTEGER NOT NULL,
+                       active INTEGER NOT NULL DEFAULT DEFAULT 0
                   ); """
 
     videosCmd = """ CREATE TABLE IF NOT EXISTS videos (
@@ -309,7 +321,15 @@ def createDB(path):
                      thumb BLOB,
                      thumbformat TEXT,
                      duration INTEGER,
-                     tags TEXT
+                     tags TEXT,
+                     language TEXT NOT NULL,
+                     width INTEGER NOT NULL,
+                     height INTEGER NOT NULL,
+                     resolution TEXT NOT NULL,
+                     viewcount INTEGER,
+                     likecount INTEGER,
+                     dislikecount INTEGER,
+                     statisticsupdated INTEGER NOT NULL
                 ); """
 
     #Create database
