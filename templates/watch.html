@@ -13,11 +13,12 @@
     data-setup='{ "playbackRates": [0.5, 0.75, 1, 1.25, 1.5, 2] }'>
     <source src="{{ url_for('video', videoID=video['id']) }}" type="{{ video['mimetype'] }}">
     {% if video['subtitles']  %}
-    <track kind="captions" src="{{ url_for('subtitles', videoID=video['id']) }}" srclang="{{ channel['lang'] }}" label="{{ channel['language'] }}">
+    <track kind="captions" src="{{ url_for('subtitles', videoID=video['id']) }}" srclang="{{ video['lang'] }}" label="{{ video['language'] }}">
     {% endif %}
 </video>
 <div class="watch videotitle"><p>{{ video['title'] }}</p></div>
 <div class="watch videopublished"><p title="{{ video['timestamp'] }}">Published {{ video['agestring'] }} ago</p></div>
+<div class="watch videostatistics"><p title="{{ video['viewcount'] }}">{{ video['views'] }} views</p><p><span title="{{ video['likecount'] }}">{{ video['likes'] }}</span><span class="iconfont">&nbsp;&#61796;&nbsp;&nbsp;&nbsp;</span><span title="{{ video['dislikecount'] }}">{{ video['dislikes'] }}</span><span class="iconfont">&nbsp;&#61797;</span></p></div>
 <div class="watch underbox">
 <div class="watch infosbox">
 <div class="watch channel box">
@@ -40,6 +41,7 @@
     <div class="watch videos prevideotitle"><p title="{{ nextVideo['title'] }}">{{ nextVideo['title'] }}</p></div>
     </a>
     <div class="watch videos prevideoinfo"><p>{{ nextVideo['duration'] }}</p><p title="{{ nextVideo['timestamp'] }}">{{ nextVideo['agestring'] }} ago</p></div>
+    <div class="watch videos prevideoinfo"><p title="Updated {{ nextVideo['statisticsupdated'] }} ago">{{ nextVideo['views'] }} views</p><p class="qualitylabel">{{ nextVideo['quality'] }}</p></div>
 </article>
 {% endif %}
 {% if previousVideo  %}
@@ -50,6 +52,7 @@
     <div class="watch videos prevideotitle"><p title="{{ previousVideo['title'] }}">{{ previousVideo['title'] }}</p></div>
     </a>
     <div class="watch videos prevideoinfo"><p>{{ previousVideo['duration'] }}</p><p title="{{ previousVideo['timestamp'] }}">{{ previousVideo['agestring'] }} ago</p></div>
+    <div class="watch videos prevideoinfo"><p title="Updated {{ previousVideo['statisticsupdated'] }} ago">{{ previousVideo['views'] }} views</p><p class="qualitylabel">{{ previousVideo['quality'] }}</p></div>
 </article>
 {% endif %}
 {% if latestVideo  %}
@@ -60,6 +63,7 @@
     <div class="watch videos prevideotitle"><p title="{{ latestVideo['title'] }}">{{ latestVideo['title'] }}</p></div>
     </a>
     <div class="watch videos prevideoinfo"><p>{{ latestVideo['duration'] }}</p><p title="{{ latestVideo['timestamp'] }}">{{ latestVideo['agestring'] }} ago</p></div>
+    <div class="watch videos prevideoinfo"><p title="Updated {{ latestVideo['statisticsupdated'] }} ago">{{ latestVideo['views'] }} views</p><p class="qualitylabel">{{ latestVideo['quality'] }}</p></div>
 </article>
 {% endif %}
 </div>

@@ -35,6 +35,11 @@ html{line-height:1.15;-webkit-text-size-adjust:100%}body{margin:0}main{display:b
     font-weight: 700;
     src: local('Roboto Bold'), local('Roboto-Bold'), url('roboto700.woff2') format('woff2');
 }
+@font-face {
+    font-family: 'Icons';
+    font-style: normal;
+    src: url('icons.woff2') format('woff2');
+}
 
 body {
     margin: 0;
@@ -47,6 +52,10 @@ h1 {
 
 img {
     border: none;
+}
+
+.iconfont {
+    font-family: Icons;
 }
 
 .main.wrapper {

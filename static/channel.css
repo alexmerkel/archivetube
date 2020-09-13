@@ -175,7 +175,7 @@
 }
 
 .channel.videos.grid.videotitle {
-    margin: 10px 0 0;
+    margin: 10px 0 5px;
     padding: 0;
     width: 100%;
     font-weight: 400;
@@ -191,7 +191,7 @@
 }
 
 .channel.videos.grid.videoinfo {
-    margin: 10px 0 0;
+    margin: 5px 0 0;
     padding: 0;
     width: 100%;
     font-weight: 400;

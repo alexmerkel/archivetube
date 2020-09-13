@@ -20,6 +20,7 @@
         <div class="channel videos grid videotitle"><p title="{{ video['title'] }}">{{ video['title'] }}</p></div>
         </a>
         <div class="channel videos grid videoinfo"><p>{{ video['duration'] }}</p><p title="{{ video['timestamp'] }}">{{ video['agestring'] }} ago</p></div>
+        <div class="channel videos grid videoinfo"><p title="Updated {{ video['statisticsupdated'] }} ago">{{ video['views'] }} views</p><p class="qualitylabel">{{ video['quality'] }}</p></div>
     </article>
 {% endfor %}
 </section>

@@ -1,0 +1,9 @@
+Font Awesome
+
+Copyright (C) 2016 by Dave Gandy
+
+Author:    Dave Gandy
+License:   SIL OFL 1.1 (http://scripts.sil.org/OFL)
+Homepage:  https://fontawesome.com/
+
+

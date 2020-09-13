@@ -37,6 +37,28 @@
     margin: 0;
 }
 
+.watch.videopublished {
+    margin: 1em 0 0;
+}
+
+.watch.videopublished > p{
+    margin: 0.1em 0;
+}
+
+.watch.videostatistics {
+    margin: 0 0 1em;
+    display: flex;
+    flex-direction: row;
+}
+
+.watch.videostatistics > p:first-child {
+    padding: 0 2em 0 0;
+}
+
+.watch.videostatistics > p{
+    margin: 0.1em 0;
+}
+
 .watch.underbox {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -168,7 +190,7 @@
 }
 
 .watch.videos.prevideotitle {
-    margin: 10px 0 0;
+    margin: 10px 0 5px;
     padding: 0;
     width: 100%;
     font-weight: 400;
@@ -184,7 +206,7 @@
 }
 
 .watch.videos.prevideoinfo {
-    margin: 10px 0 0;
+    margin: 5px 0 0;
     padding: 0;
     width: 100%;
     font-weight: 400;

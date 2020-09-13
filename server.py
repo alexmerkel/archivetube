@@ -4,6 +4,7 @@
 import os
 import io
 import threading
+import locale
 import sqlite3
 import math
 import mimetypes
@@ -32,6 +33,8 @@ class Server(threading.Thread):
         '''
         #Call superclass init
         super(Server, self).__init__(*args, **kw)
+        #Set locale
+        locale.setlocale(locale.LC_ALL, '')
         #Define url finder
         self.urlfinder = URLFinder()
         #Setup database
@@ -115,14 +118,14 @@ class Server(threading.Thread):
             return flask.redirect(flask.url_for("home"))
 
         #Get video info from database
-        r = self.db.execute("SELECT id,channelID,title,timestamp,description,subtitles,filepath,tags FROM videos WHERE id = ?", (videoID,))
+        r = self.db.execute("SELECT id,channelID,title,timestamp,description,subtitles,filepath,tags,language,viewcount,statisticsupdated,likecount,dislikecount FROM videos WHERE id = ?", (videoID,))
         video = r.fetchone()
         del r
         if not video:
             return self.getErrorPage(404, "Video not found")
         video = dict(video)
         #Get channel from database
-        r = self.db.execute("SELECT id,name,language,videos,lastupdate FROM channels WHERE id = ?", (video["channelID"],))
+        r = self.db.execute("SELECT id,name,videos,lastupdate FROM channels WHERE id = ?", (video["channelID"],))
         channel = r.fetchone()
         del r
         if not channel:
@@ -130,16 +133,24 @@ class Server(threading.Thread):
         channel = dict(channel)
         #Convert timestamp
         channel["lastupdate"] = self.timestampToHumanString(channel["lastupdate"])
+        #Prepare statistics
+        video["views"] = self.intToHuman(video["viewcount"])
+        video["viewcount"] = self.intToStr(video["viewcount"])
+        video["likes"] = self.intToHuman(video["likecount"])
+        video["likecount"] = self.intToStr(video["likecount"])
+        video["dislikes"] = self.intToHuman(video["dislikecount"])
+        video["dislikecount"] = self.intToStr(video["dislikecount"])
+        video["statisticsupdated"] = self.timestampToHumanString(video["statisticsupdated"])
         #Get channel language code and name
         if video["subtitles"]:
-            if channel["language"]:
-                lang = languages.get(alpha_2=channel["language"])
-                channel["language"] = lang.name
-                channel["lang"] = lang.alpha_2
+            if video["language"]:
+                lang = languages.get(alpha_2=video["language"])
+                video["language"] = lang.name
+                video["lang"] = lang.alpha_2
             else:
                 video["subtitles"] = False
         #Get next video info from database
-        r = self.db.execute("SELECT id,title,timestamp,duration FROM videos WHERE channelID = ? AND timestamp > ? ORDER BY timestamp ASC LIMIT 1;", (channel["id"], video["timestamp"]))
+        r = self.db.execute("SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? AND timestamp > ? ORDER BY timestamp ASC LIMIT 1;", (channel["id"], video["timestamp"]))
         nextVideo = r.fetchone()
         del r
         if nextVideo:
@@ -148,10 +159,13 @@ class Server(threading.Thread):
             nextVideo["duration"] = self.secToTime(nextVideo["duration"])
             nextVideo["agestring"] = self.timestampToHumanString(nextVideo["timestamp"])
             nextVideo["timestamp"] = self.timestampToLocalTimeString(nextVideo["timestamp"])
+            nextVideo["views"] = self.intToHuman(nextVideo["viewcount"])
+            nextVideo["statisticsupdated"] = self.timestampToHumanString(nextVideo["statisticsupdated"])
+            nextVideo["quality"] = self.qualityLabel(nextVideo["resolution"])
         else:
             nextVideo = None
         #Get previous video info from database
-        r = self.db.execute("SELECT id,title,timestamp,duration FROM videos WHERE channelID = ? AND timestamp < ? ORDER BY timestamp DESC LIMIT 1;", (channel["id"], video["timestamp"]))
+        r = self.db.execute("SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? AND timestamp < ? ORDER BY timestamp DESC LIMIT 1;", (channel["id"], video["timestamp"]))
         previousVideo = r.fetchone()
         del r
         if previousVideo:
@@ -160,10 +174,13 @@ class Server(threading.Thread):
             previousVideo["duration"] = self.secToTime(previousVideo["duration"])
             previousVideo["agestring"] = self.timestampToHumanString(previousVideo["timestamp"])
             previousVideo["timestamp"] = self.timestampToLocalTimeString(previousVideo["timestamp"])
+            previousVideo["views"] = self.intToHuman(previousVideo["viewcount"])
+            previousVideo["statisticsupdated"] = self.timestampToHumanString(previousVideo["statisticsupdated"])
+            previousVideo["quality"] = self.qualityLabel(previousVideo["resolution"])
         else:
             previousVideo = None
         #Get latest video info from database
-        r = self.db.execute("SELECT id,title,timestamp,duration FROM videos WHERE channelID = ? ORDER BY timestamp DESC LIMIT 1", (channel["id"],))
+        r = self.db.execute("SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? ORDER BY timestamp DESC LIMIT 1", (channel["id"],))
         latestVideo = r.fetchone()
         del r
         if latestVideo:
@@ -172,6 +189,9 @@ class Server(threading.Thread):
             latestVideo["duration"] = self.secToTime(latestVideo["duration"])
             latestVideo["agestring"] = self.timestampToHumanString(latestVideo["timestamp"])
             latestVideo["timestamp"] = self.timestampToLocalTimeString(latestVideo["timestamp"])
+            latestVideo["views"] = self.intToHuman(latestVideo["viewcount"])
+            latestVideo["statisticsupdated"] = self.timestampToHumanString(latestVideo["statisticsupdated"])
+            latestVideo["quality"] = self.qualityLabel(latestVideo["resolution"])
             #Only show latest video if this or the next video is not the latest
             if latestVideo["id"] == video["id"] or latestVideo["id"] == nextVideo["id"]:
                 latestVideo = None
@@ -209,12 +229,15 @@ class Server(threading.Thread):
         # Get channel home
         if func == "home":
             #Get 4 latest videos
-            cmd = "SELECT id,title,timestamp,duration FROM videos WHERE channelID = ? ORDER BY timestamp DESC LIMIT {}".format(__latestVideos__)
+            cmd = "SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? ORDER BY timestamp DESC LIMIT {}".format(__latestVideos__)
             r = self.db.execute(cmd, (channelID,))
             videos = [dict(v) for v in r.fetchall()]
             del r
             #Convert timestamp and duration
             for v in videos:
+                v["views"] = self.intToHuman(v["viewcount"])
+                v["statisticsupdated"] = self.timestampToHumanString(v["statisticsupdated"])
+                v["quality"] = self.qualityLabel(v["resolution"])
                 v["duration"] = self.secToTime(v["duration"])
                 v["agestring"] = self.timestampToHumanString(v["timestamp"])
                 v["timestamp"] = self.timestampToLocalTimeString(v["timestamp"])
@@ -236,16 +259,21 @@ class Server(threading.Thread):
             #Get sorting direction
             sorting = flask.request.args.get("s", "new")
             if sorting == "old":
-                sorting = "ASC"
+                sorting = "timestamp ASC"
+            elif sorting == "view":
+                sorting = "viewcount DESC"
             else:
-                sorting = "DESC"
+                sorting = "timestamp DESC"
             #Query database
-            cmd = "SELECT id,title,timestamp,duration FROM videos WHERE channelID = ? ORDER BY timestamp {} LIMIT {} OFFSET {}".format(sorting, __videosPerPage__, (page - 1)*__videosPerPage__)
+            cmd = "SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? ORDER BY {} LIMIT {} OFFSET {}".format(sorting, __videosPerPage__, (page - 1)*__videosPerPage__)
             r = self.db.execute(cmd, (channelID,))
             videos = [dict(v) for v in r.fetchall()]
             del r
             #Convert timestamp and duration
             for v in videos:
+                v["views"] = self.intToHuman(v["viewcount"])
+                v["statisticsupdated"] = self.timestampToHumanString(v["statisticsupdated"])
+                v["quality"] = self.qualityLabel(v["resolution"])
                 v["duration"] = self.secToTime(v["duration"])
                 v["agestring"] = self.timestampToHumanString(v["timestamp"])
                 v["timestamp"] = self.timestampToLocalTimeString(v["timestamp"])
@@ -664,10 +692,8 @@ class Server(threading.Thread):
     @staticmethod
     def timestampToLocalTimeString(timestamp):
         '''Convert a UTC timestamp to local timestring
-
         :param timestamp: The timestamp
         :type timestamp: int
-
         :returns: Local time in the format YYYY-MM-DD HH:MM:SS
         :rtype: string
         '''
@@ -685,7 +711,7 @@ class Server(threading.Thread):
         '''Convert duration in seconds to MM:SS or HH:MM:SS string
 
         :param sec: The duration in seconds
-        :type args: int
+        :type sec: int
         :returns: The duration as MM:SS or HH:MM:SS
         :rtype: string
         '''
@@ -696,6 +722,66 @@ class Server(threading.Thread):
         if h > 0:
             return "{:02d}:{:02d}:{:02d}".format(h, m, sec)
         return "{:02d}:{:02d}".format(m, sec)
+    # ########################################################################### #
+
+    # --------------------------------------------------------------------------- #
+    @staticmethod
+    def intToHuman(i):
+        '''Convert an integer to a human readable shortstring (e.g 1205 > 1K, 153934 > 1M)
+        If None, it returns "-"
+
+        :param i: The number
+        :type i: int
+        :returns: Human readable string
+        :rtype: string
+        '''
+        if not i:
+            return "-"
+        if i >= 1000000000000:
+            return "{:d}T".format(int(i/1000000000000))
+        if i >= 1000000000:
+            return "{:d}B".format(int(i/1000000000))
+        if i >= 1000000:
+            return "{:d}M".format(int(i/1000000))
+        if i >= 1000:
+            return "{:d}K".format(int(i/1000))
+        return "{:d}".format(i)
+    # ########################################################################### #
+
+    # --------------------------------------------------------------------------- #
+    @staticmethod
+    def intToStr(i):
+        '''Convert an integer to string or return "-" if None
+
+        :param i: The number
+        :type i: int
+        :returns: String representation or "-"
+        :rtype: string
+        '''
+        if not i:
+            return "-"
+        return "{:n}".format(i)
+    # ########################################################################### #
+
+    # --------------------------------------------------------------------------- #
+    @staticmethod
+    def qualityLabel(resolution):
+        '''Takes ytarchiver's resolution string and returns text for a quality label
+
+        :param resolution: ytarchiver's resolution string
+        :type resolution: string
+        :returns: text for a quality label
+        :rtype: string
+        '''
+        if not resolution:
+            return "-"
+        if resolution == "Full HD":
+            return "HD"
+        if resolution == "4K UHD":
+            return "4K"
+        if resolution == "8K UHD":
+            return "8K"
+        return resolution
     # ########################################################################### #
 
 # /////////////////////////////////////////////////////////////////////////// #
