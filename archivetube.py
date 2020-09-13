@@ -9,9 +9,9 @@ import time
 from server import Server
 
 __prog__ = "archivetube"
-__version__ = "0.1.0"
-__dbversion__ = 1
-__archivedbversion__ = 2
+__version__ = "0.2.0"
+__dbversion__ = 2
+__archivedbversion__ = 4
 
 # --------------------------------------------------------------------------- #
 def main(args):
@@ -159,7 +159,7 @@ def reIndex(db, dirpath):
 
         #Read video info
         try:
-            r = archivedb.execute("SELECT youtubeID,title,timestamp,description,subtitles,filename,thumb,thumbformat,duration,tags FROM videos;")
+            r = archivedb.execute("SELECT youtubeID,title,timestamp,description,subtitles,filename,thumb,thumbformat,duration,tags,language,width,height,resolution,viewcount,likecount,dislikecount,statisticsupdated FROM videos;")
             videos = r.fetchall()
             del r
         except sqlite3.Error:
@@ -175,10 +175,10 @@ def reIndex(db, dirpath):
                 info[4] = os.path.join(abspath, info[4])
                 info = tuple(info)
                 try:
-                    insert = "INSERT INTO videos(id,channelID,title,timestamp,description,subtitles,filepath,thumb,thumbformat,duration,tags) VALUES(?,?,?,?,?,?,?,?,?,?,?);"
+                    insert = "INSERT INTO videos(id,channelID,title,timestamp,description,subtitles,filepath,thumb,thumbformat,duration,tags,language,width,height,resolution,viewcount,likecount,dislikecount,statisticsupdated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);"
                     db.execute(insert, (videoID, channelID) + info)
                 except sqlite3.Error:
-                    update = "UPDATE videos SET channelID=?,title=?,timestamp=?,description=?,subtitles=?,filepath=?,thumb=?,thumbformat=?,duration=?,tags=? WHERE id = ?;"
+                    update = "UPDATE videos SET channelID=?,title=?,timestamp=?,description=?,subtitles=?,filepath=?,thumb=?,thumbformat=?,duration=?,tags=?,language=?,width=?,height=?,resolution=?,viewcount=?,likecount=?,dislikecount=?,statisticsupdated=? WHERE id = ?;"
                     db.execute(update, (channelID,) + info + (videoID,))
         except sqlite3.Error:
             print("ERROR: Unable to write video info from '{}'".format(os.path.basename(relpath)))
@@ -222,6 +222,29 @@ def connectDB(path):
     #Check if not uptodate
     if version < __dbversion__:
         print("Upgrading database")
+        try:
+            #Perform upgrade to version 2
+            if version < 2:
+                #Clear video database
+                db.execute("DELETE FROM videos")
+                #Add new columns
+                db.execute('ALTER TABLE videos ADD COLUMN language TEXT NOT NULL;')
+                db.execute('ALTER TABLE videos ADD COLUMN width INTEGER NOT NULL;')
+                db.execute('ALTER TABLE videos ADD COLUMN height INTEGER NOT NULL;')
+                db.execute('ALTER TABLE videos ADD COLUMN resolution TEXT NOT NULL;')
+                db.execute('ALTER TABLE videos ADD COLUMN viewcount INTEGER;')
+                db.execute('ALTER TABLE videos ADD COLUMN likecount INTEGER;')
+                db.execute('ALTER TABLE videos ADD COLUMN dislikecount INTEGER;')
+                db.execute('ALTER TABLE videos ADD COLUMN statisticsupdated INTEGER NOT NULL;')
+                #Update db version
+                version = 2
+                db.execute("UPDATE info SET dbversion = 2 WHERE id = 1")
+                dbCon.commit()
+        except sqlite3.Error as e:
+            print("ERROR: Unable to upgrade database (\"{}\")".format(e))
+            dbCon.rollback()
+            dbCon.close()
+            sys.exit(1)
 
     dbCon.commit()
 
