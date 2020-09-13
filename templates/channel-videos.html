@@ -8,9 +8,18 @@
 
 {% block content %}
 <div class="channel videos videosbox">
+<div class="channel videos videossorting">
+    <div class="channel videos sorting" id="sortingbutton" ><a>Sort by<span class="iconfont">&nbsp;&#59392;</span></a>
+        <ul id="sortingdropdown">
+            <li><a href="{{ url_for('channel-sorting', channelID=info.id, func='videos', sorting='new') }}">Newest first</a></li>
+            <li><a href="{{ url_for('channel-sorting', channelID=info.id, func='videos', sorting='old') }}">Oldest first</a></li>
+            <li><a href="{{ url_for('channel-sorting', channelID=info.id, func='videos', sorting='view') }}">Views</a></li>
+        </ul>
+    </div>
+</div>
 <div class="channel videos videosnav">
-    <a class="channel videos videosnav link {{ "disabled" if info['page'] == 1 else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']-1) }}">Prev</a>
-    <a class="channel videos videosnav link {{ "disabled" if info['page'] == info['maxpage'] else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']+1) }}">Next</a>
+    <a class="channel videos videosnav link {{ "disabled" if info['page'] == 1 else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']-1, sorting=info['sorting']) if 'sorting' in info else url_for('channel-page', channelID=info.id, func='videos', page=info['page']-1) }}">Prev</a>
+    <a class="channel videos videosnav link {{ "disabled" if info['page'] == info['maxpage'] else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']+1, sorting=info['sorting']) if 'sorting' in info else url_for('channel-page', channelID=info.id, func='videos', page=info['page']+1) }}">Next</a>
 </div>
 <section class="channel videos grid">
 {% for video in videos %}
@@ -25,8 +34,8 @@
 {% endfor %}
 </section>
 <div class="channel videos videosnav">
-    <a class="channel videos videosnav link {{ "disabled" if info['page'] == 1 else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']-1) }}">Prev</a>
-    <a class="channel videos videosnav link {{ "disabled" if info['page'] == info['maxpage'] else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']+1) }}">Next</a>
+    <a class="channel videos videosnav link {{ "disabled" if info['page'] == 1 else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']-1, sorting=info['sorting']) if 'sorting' in info else url_for('channel-page', channelID=info.id, func='videos', page=info['page']-1) }}">Prev</a>
+    <a class="channel videos videosnav link {{ "disabled" if info['page'] == info['maxpage'] else "enabled" }}" href="{{ url_for('channel-page', channelID=info.id, func='videos', page=info['page']+1, sorting=info['sorting']) if 'sorting' in info else url_for('channel-page', channelID=info.id, func='videos', page=info['page']+1) }}">Next</a>
 </div>
 </div>
 {% endblock %}

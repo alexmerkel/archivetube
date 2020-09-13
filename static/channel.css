@@ -151,6 +151,89 @@
     cursor: default;
 }
 
+.channel.videos.videossorting {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: space-between;
+    margin: -20px 0 10px;
+}
+
+@media screen and (max-width: 720px) {
+    .channel.videos.videossorting {
+        margin: 0 0 10px;
+    }
+}
+
+.channel.videos.sorting {
+    display: block;
+    float: left;
+    position: relative;
+    text-decoration: none;
+    transition-duration: 0.5s;
+    cursor: pointer;
+}
+
+.channel.videos.sorting:hover {
+    cursor: pointer;
+}
+
+.channel.videos.sorting > a {
+    margin: 0;
+    text-decoration: none;
+    color: var(--color-text);
+}
+
+.channel.videos.sorting:hover > a {
+    color: var(--color-mildtext);
+}
+
+.channel.videos.sorting:focus-within > a {
+    color: var(--color-mildtext);
+}
+
+.channel.videos.sorting ul {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    transition: all 0.5s ease;
+    left: -80%;
+    display: none;
+    margin: 0;
+    padding: 0.2em 0 0 0;
+    width: 180%;
+}
+
+.channel.videos.sorting li {
+    padding: 0.3em;
+    text-decoration: none;
+    display: block;
+    position: relative;
+    background: #fff;
+}
+
+.channel.videos.sorting li > a {
+    text-decoration: none;
+    color: var(--color-text);
+}
+
+.channel.videos.sorting li > a:hover {
+    color: var(--color-mildhigh);
+}
+
+.channel.videos.sorting:hover > ul,
+.channel.videos.sorting:focus-within > ul,
+.channel.videos.sorting ul:hover {
+    visibility: visible;
+    opacity: 1;
+    display: block;
+}
+
+.channel.videos.sorting ul.visible {
+    visibility: visible;
+    opacity: 1;
+    display: block;
+}
+
 .channel.videos.grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));

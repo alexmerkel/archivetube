@@ -27,4 +27,15 @@ window.onload = function () {
             stickyHeader.classList.remove("sticky");
         }
     };
+
+    try {
+        document.getElementById("sortingbutton").addEventListener("click", function(event){
+            event.stopPropagation();
+            e = document.getElementById("sortingdropdown").classList.toggle("visible");
+        });
+
+        document.onclick = function() {
+            document.getElementById("sortingdropdown").classList.remove("visible");
+        };
+    } catch(err) {}
 };

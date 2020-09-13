@@ -55,9 +55,11 @@ class Server(threading.Thread):
         #Add routes
         self.app.add_url_rule("/", "home", self.getHome)
         self.app.add_url_rule("/watch", "watch", self.getWatch)
-        self.app.add_url_rule("/channel/<channelID>/", "channel", self.getChannel, defaults={"func": "home", "page": None})
-        self.app.add_url_rule("/channel/<channelID>/<func>/", "channel-func", self.getChannel, defaults={"page": None})
-        self.app.add_url_rule("/channel/<channelID>/<func>/page/<int:page>/", "channel-page", self.getChannel)
+        self.app.add_url_rule("/channel/<channelID>/", "channel", self.getChannel, defaults={"func": "home", "page": None, "sorting": "new"})
+        self.app.add_url_rule("/channel/<channelID>/<func>/", "channel-func", self.getChannel, defaults={"page": None, "sorting": "new"})
+        self.app.add_url_rule("/channel/<channelID>/<func>/<sorting>/", "channel-sorting", self.getChannel, defaults={"page": None})
+        self.app.add_url_rule("/channel/<channelID>/<func>/page/<int:page>/", "channel-page", self.getChannel, defaults={"sorting": "new"})
+        self.app.add_url_rule("/channel/<channelID>/<func>/<sorting>/page/<int:page>/", "channel-page", self.getChannel)
         self.app.add_url_rule("/res/thumb/<videoID>", "thumb", self.getThumbnail)
         self.app.add_url_rule("/res/video/<videoID>", "video", self.getVideo)
         self.app.add_url_rule("/res/subtitles/<videoID>", "subtitles", self.getSubtitles)
@@ -211,7 +213,7 @@ class Server(threading.Thread):
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getChannel(self, channelID, func, page):
+    def getChannel(self, channelID, func, page, sorting):
         '''
         Return the channel page
         '''
@@ -257,7 +259,8 @@ class Server(threading.Thread):
                 page = data["maxpage"]
             data["page"] = page
             #Get sorting direction
-            sorting = flask.request.args.get("s", "new")
+            if sorting != "new":
+                data["sorting"] = sorting
             if sorting == "old":
                 sorting = "timestamp ASC"
             elif sorting == "view":
