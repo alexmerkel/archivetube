@@ -48,3 +48,4 @@ Included projects:
 *   [Video.js](https://videojs.com/) _Brightcove, Inc._ Apache License Version 2.0
 *   [Roboto](https://github.com/googlefonts/roboto) _Christian Robertson_ Apache License Version 2.0
 *   [FontAwesome](https://fontawesome.com/) _Dave Gandy_ SIL OFL 1.1
+*   Artwork in the screenshots courtesy of [Kurzgesagt](https://kurzgesagt.org/)
