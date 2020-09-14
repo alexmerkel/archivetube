@@ -111,8 +111,9 @@ def reIndex(db, dirpath):
         print("ERROR: No archives in database")
         sys.exit(1)
 
-    #Set all channels to inactive
+    #Set all channels and videos to inactive
     db.execute("UPDATE channels SET active = 0;")
+    db.execute("UPDATE videos SET active = 0;")
 
     #Copy info
     for relpath in archives:
@@ -178,10 +179,10 @@ def reIndex(db, dirpath):
                 info[4] = os.path.join(abspath, info[4])
                 info = tuple(info)
                 try:
-                    insert = "INSERT INTO videos(id,channelID,title,timestamp,description,subtitles,filepath,thumb,thumbformat,duration,tags,language,width,height,resolution,viewcount,likecount,dislikecount,statisticsupdated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);"
+                    insert = "INSERT INTO videos(id,channelID,title,timestamp,description,subtitles,filepath,thumb,thumbformat,duration,tags,language,width,height,resolution,viewcount,likecount,dislikecount,statisticsupdated, active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1);"
                     db.execute(insert, (videoID, channelID) + info)
                 except sqlite3.Error:
-                    update = "UPDATE videos SET channelID=?,title=?,timestamp=?,description=?,subtitles=?,filepath=?,thumb=?,thumbformat=?,duration=?,tags=?,language=?,width=?,height=?,resolution=?,viewcount=?,likecount=?,dislikecount=?,statisticsupdated=? WHERE id = ?;"
+                    update = "UPDATE videos SET channelID=?,title=?,timestamp=?,description=?,subtitles=?,filepath=?,thumb=?,thumbformat=?,duration=?,tags=?,language=?,width=?,height=?,resolution=?,viewcount=?,likecount=?,dislikecount=?,statisticsupdated=?,active=1 WHERE id = ?;"
                     db.execute(update, (channelID,) + info + (videoID,))
         except sqlite3.Error:
             print("ERROR: Unable to write video info from '{}'".format(os.path.basename(relpath)))
@@ -191,7 +192,7 @@ def reIndex(db, dirpath):
         archivedb.close()
 
     #Update info fields
-    videos = db.execute("SELECT count(*) FROM videos;").fetchone()[0]
+    videos = db.execute("SELECT count(*) FROM videos WHERE active = 1;").fetchone()[0]
     channels = db.execute("SELECT count(*) FROM channels WHERE active = 1;").fetchone()[0]
     db.execute("UPDATE info SET lastupdate = ?, videos = ?, channels = ? WHERE id = 1", (int(time.time()), videos, channels))
 # ########################################################################### #
@@ -245,8 +246,9 @@ def connectDB(path):
                 dbCon.commit()
             #Perform upgrade to version 3
             if version < 3:
-                #Add active channel column
+                #Add active channel and video column
                 db.execute('ALTER TABLE channels ADD COLUMN active INTEGER NOT NULL DEFAULT 0;')
+                db.execute('ALTER TABLE videos ADD COLUMN active INTEGER NOT NULL DEFAULT 0;')
                 #Update db version
                 version = 3
                 db.execute("UPDATE info SET dbversion = 3 WHERE id = 1")
@@ -329,7 +331,8 @@ def createDB(path):
                      viewcount INTEGER,
                      likecount INTEGER,
                      dislikecount INTEGER,
-                     statisticsupdated INTEGER NOT NULL
+                     statisticsupdated INTEGER NOT NULL,
+                     active INTEGER NOT NULL DEFAULT DEFAULT 0
                 ); """
 
     #Create database
