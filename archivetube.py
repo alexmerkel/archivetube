@@ -309,7 +309,7 @@ def createDB(path):
                        bannerformat TEXT,
                        videos INTEGER NOT NULL,
                        lastupdate INTEGER NOT NULL,
-                       active INTEGER NOT NULL DEFAULT DEFAULT 0
+                       active INTEGER NOT NULL DEFAULT 0
                   ); """
 
     videosCmd = """ CREATE TABLE IF NOT EXISTS videos (
@@ -332,7 +332,7 @@ def createDB(path):
                      likecount INTEGER,
                      dislikecount INTEGER,
                      statisticsupdated INTEGER NOT NULL,
-                     active INTEGER NOT NULL DEFAULT DEFAULT 0
+                     active INTEGER NOT NULL DEFAULT 0
                 ); """
 
     #Create database
