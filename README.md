@@ -7,7 +7,7 @@ backend and a frontend with much of the functionalities of a typical video hosti
 ![Screenshots](docs/mosaic.jpg)
 
 **Important:** This is in no way meant as a production server. The backend is not optimized, there is no load balancing, and the video files are
-served directly from disk without any re-encoding. The server is meant to run locally or in a private network with very limited users.
+served directly from disk without any re-encoding. The server is meant to run locally or in a private network with a very limited amount of users.
 
 Usage
 -----
