@@ -15,6 +15,9 @@
     {% if video['subtitles']  %}
     <track kind="captions" src="{{ url_for('subtitles', videoID=video['id']) }}" srclang="{{ video['lang'] }}" label="{{ video['language'] }}">
     {% endif %}
+    {% if video['chapters']  %}
+    <track kind="chapters" src="{{ url_for('chapters', videoID=video['id']) }}" srclang="{{ video['lang'] }}" label="{{ video['language'] }}">
+    {% endif %}
 </video>
 <div class="watch videotitle"><p>{{ video['title'] }}</p></div>
 <div class="watch videopublished"><p title="{{ video['timestamp'] }}">Published {{ video['agestring'] }} ago</p></div>

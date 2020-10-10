@@ -63,6 +63,7 @@ class Server(threading.Thread):
         self.app.add_url_rule("/res/thumb/<videoID>", "thumb", self.getThumbnail)
         self.app.add_url_rule("/res/video/<videoID>", "video", self.getVideo)
         self.app.add_url_rule("/res/subtitles/<videoID>", "subtitles", self.getSubtitles)
+        self.app.add_url_rule("/res/chapters/<videoID>", "chapters", self.getChapters)
         self.app.add_url_rule("/res/profile/<channelID>", "profile", self.getProfile)
         self.app.add_url_rule("/res/banner/<channelID>", "banner", self.getBanner)
         #Add error handlers
@@ -120,7 +121,7 @@ class Server(threading.Thread):
             return flask.redirect(flask.url_for("home"))
 
         #Get video info from database
-        r = self.db.execute("SELECT id,channelID,title,timestamp,description,subtitles,filepath,tags,language,viewcount,statisticsupdated,likecount,dislikecount FROM videos WHERE id = ?", (videoID,))
+        r = self.db.execute("SELECT id,channelID,title,timestamp,description,subtitles,filepath,tags,language,viewcount,statisticsupdated,likecount,dislikecount,chapters FROM videos WHERE id = ?", (videoID,))
         video = r.fetchone()
         del r
         if not video:
@@ -143,14 +144,17 @@ class Server(threading.Thread):
         video["dislikes"] = self.intToHuman(video["dislikecount"])
         video["dislikecount"] = self.intToStr(video["dislikecount"])
         video["statisticsupdated"] = self.timestampToHumanString(video["statisticsupdated"])
+        #Turn subtitles and chapters into boolean
+        video["subtitles"] = bool(video["subtitles"])
+        video["chapters"] = bool(video["chapters"])
         #Get channel language code and name
-        if video["subtitles"]:
-            if video["language"]:
-                lang = languages.get(alpha_2=video["language"])
-                video["language"] = lang.name
-                video["lang"] = lang.alpha_2
-            else:
-                video["subtitles"] = False
+        if video["language"]:
+            lang = languages.get(alpha_2=video["language"])
+            video["language"] = lang.name
+            video["lang"] = lang.alpha_2
+        else:
+            video["subtitles"] = False
+            video["chapters"] = False
         #Get next video info from database
         r = self.db.execute("SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? AND timestamp > ? ORDER BY timestamp ASC LIMIT 1;", (channel["id"], video["timestamp"]))
         nextVideo = r.fetchone()
@@ -441,12 +445,11 @@ class Server(threading.Thread):
     # --------------------------------------------------------------------------- #
     def getSubtitles(self, videoID):
         '''
-        Return subtitles of a video of they have any
+        Return subtitles of a video if it has any
         '''
         #If no id supplied, return 404
         if not videoID:
             return '', 404
-
 
         #Get info from database
         r = self.db.execute("SELECT subtitles FROM videos WHERE id = ?", (videoID,))
@@ -458,6 +461,46 @@ class Server(threading.Thread):
 
         #Respond with subtitles
         r = flask.make_response(data[0])
+        r.headers.set('Content-Type', "text/vtt")
+        r.cache_control.public = True
+        r.cache_control.max_age = 300
+        return r
+    # ########################################################################### #
+
+    # --------------------------------------------------------------------------- #
+    def getChapters(self, videoID):
+        '''
+        Return chapters of a video if it has any
+        '''
+        #If no id supplied, return 404
+        if not videoID:
+            return '', 404
+
+        #Get info from database
+        r = self.db.execute("SELECT chapters FROM videos WHERE id = ?", (videoID,))
+        data = r.fetchone()
+        del r
+        #If not found, return 404
+        if not data or not data[0]:
+            return '', 404
+
+        #Covert chapters to webvtt
+        chapters = data[0].splitlines()
+        vtt= ["WEBVTT"]
+        for i in range(len(chapters)):
+            starttime, name = chapters[i].split(maxsplit=1)
+            if i+1 < len(chapters):
+                endtime, _ = chapters[i+1].split(maxsplit=1)
+            else:
+                endtime = "99:59:59.999"
+            vtt.append("")
+            vtt.append("{}".format(i+1))
+            vtt.append("{} --> {}".format(starttime, endtime))
+            vtt.append(name)
+
+
+        #Return webvtt chapters
+        r = flask.make_response('\n'.join(vtt))
         r.headers.set('Content-Type', "text/vtt")
         r.cache_control.public = True
         r.cache_control.max_age = 300
