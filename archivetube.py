@@ -199,7 +199,7 @@ def reIndex(db, dirpath):
 
 # --------------------------------------------------------------------------- #
 def connectDB(path):
-    '''Connect to exising db and upgrade it if necessary
+    '''Connect to existing db and upgrade it if necessary
 
     :param path: Path at which to store the new database
     :type path: string
@@ -220,10 +220,10 @@ def connectDB(path):
         version = r.fetchone()[0]
         del r
     except (sqlite3.Error, TypeError):
-        print("ERRPR: Unsupported database!")
+        print("ERROR: Unsupported database!")
         sys.exit(1)
 
-    #Check if not uptodate
+    #Check if not up to date
     if version < __dbversion__:
         print("Upgrading database")
         try:
