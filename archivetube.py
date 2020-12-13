@@ -184,8 +184,9 @@ def reIndex(db, dirpath):
                 except sqlite3.Error:
                     update = "UPDATE videos SET channelID=?,title=?,timestamp=?,description=?,subtitles=?,filepath=?,thumb=?,thumbformat=?,duration=?,tags=?,language=?,width=?,height=?,resolution=?,viewcount=?,likecount=?,dislikecount=?,statisticsupdated=?,chapters=?,active=1 WHERE id = ?;"
                     db.execute(update, (channelID,) + info + (videoID,))
-        except sqlite3.Error:
+        except sqlite3.Error as e:
             print("ERROR: Unable to write video info from '{}'".format(os.path.basename(relpath)))
+            print(e)
             return
 
         #Close archive database
@@ -340,7 +341,8 @@ def createDB(path):
                      likecount INTEGER,
                      dislikecount INTEGER,
                      statisticsupdated INTEGER NOT NULL,
-                     active INTEGER NOT NULL DEFAULT 0
+                     active INTEGER NOT NULL DEFAULT 0,
+                     chapters TEXT
                 ); """
 
     #Create database
