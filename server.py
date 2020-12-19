@@ -27,7 +27,7 @@ class Server(threading.Thread):
     '''
 
     # --------------------------------------------------------------------------- #
-    def __init__(self, dbPath, baseinfo, *args, **kw):
+    def __init__(self, dbCon, baseinfo, *args, **kw):
         '''
         Initialize the server
         '''
@@ -38,7 +38,7 @@ class Server(threading.Thread):
         #Define url finder
         self.urlfinder = URLFinder()
         #Setup database
-        self.db = sqlite3.connect(dbPath, check_same_thread=False)
+        self.db = dbCon
         self.db.row_factory = sqlite3.Row
         #Base info dict
         self.baseinfo = baseinfo

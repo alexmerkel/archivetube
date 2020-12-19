@@ -9,7 +9,7 @@ import time
 from server import Server
 
 __prog__ = "archivetube"
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __dbversion__ = 4
 __archivedbversion__ = 5
 
@@ -21,8 +21,10 @@ def main(args):
     :type args: list
     '''
     parser = argparse.ArgumentParser(prog=__prog__, description="Serve a web interface for archived videos")
+    parser.add_argument("-v", "--verbose", action="store_const", dest="verbose", const=True, default=False, help="Print more status info")
     parser.add_argument("-r", "--recursive", action="store_const", dest="recursive", const=True, default=False, help="Add all archives in subdirectories of the specified location to the database")
     parser.add_argument("-f", "--folder", action="store", dest="folder", help="Add an archive directory to the database (Path will be stored as relative to DIR)")
+    parser.add_argument("-m", "--memory", action="store_const", dest="memory", const=True, default=False, help="Keep whole database in memory (faster, but requires a lot of memory)")
     parser.add_argument("-V", "--version", action="version", version='%(prog)s {}'.format(__version__))
     parser.add_argument("DIR", help="The directory to work in")
 
@@ -33,17 +35,36 @@ def main(args):
     if not os.path.isdir(path):
         parser.error("An existing directory must be specified")
 
+    if args.memory:
+        print("Using in-memory database")
+
     try:
         #Check if database exists
         dbPath = os.path.join(path, "tube.db")
         try:
             if os.path.isfile(dbPath):
                 #Connect to database
-                dbCon = connectDB(dbPath)
+                t1 = time.perf_counter()
+                if args.memory:
+                    print("Reading existing database")
+                    fileDBCon = connectDB(dbPath)
+                    dbCon = sqlite3.connect(":memory:", check_same_thread=False)
+                    fileDBCon.backup(dbCon)
+                    fileDBCon.close()
+                else:
+                    print("Connect to existing database")
+                    dbCon = connectDB(dbPath, checkThread=False)
+                t2 = time.perf_counter()
+                t = t2 - t1
+                if args.verbose:
+                    print("Read time: {:0.4f} seconds".format(t))
             else:
                 #No database found
                 print("No database found, creating one")
-                dbCon = createDB(dbPath)
+                if args.memory:
+                    dbCon = createDB(":memory:", checkThread=False)
+                else:
+                    dbCon = createDB(dbPath, checkThread=False)
             db = dbCon.cursor()
         except sqlite3.Error as e:
             print(e)
@@ -59,21 +80,39 @@ def main(args):
             cmd = "INSERT INTO archives(relpath, abspath, recursive) VALUES(?,?,?)"
             db.execute(cmd, (rel, args.folder, args.recursive))
 
-        #Print status
+        #(Re-) indexing
         print("(Re-)building index")
+        t1 = time.perf_counter()
         reIndex(db, path)
+        dbCon.commit()
+        t2 = time.perf_counter()
+        t = t2 - t1
+        if args.verbose:
+            print("Index time: {:0.4f} seconds".format(t))
 
         #Write changes to database
-        if dbCon:
-            dbCon.commit()
-            dbCon.close()
+        if args.memory:
+            print("Writing new database")
+            t1 = time.perf_counter()
+            try:
+                os.remove(dbPath)
+            except OSError:
+                pass
+            fileDBCon = sqlite3.connect(dbPath)
+            dbCon.backup(fileDBCon)
+            fileDBCon.close()
+            t2 = time.perf_counter()
+            t = t2 - t1
+            if args.verbose:
+                print("Write time: {:0.4f} seconds".format(t))
+
     except KeyboardInterrupt:
         print("Aborted!")
 
     #Start server
     try:
         baseinfo = {"name": __prog__, "version": __version__}
-        server = Server(dbPath, baseinfo)
+        server = Server(dbCon, baseinfo)
         server.daemon = True
         server.start()
         server.join()
@@ -122,8 +161,8 @@ def reIndex(db, dirpath):
         try:
             archivedbPath = os.path.join(abspath, "archive.db")
             archivedb = sqlite3.connect(archivedbPath)
-        except sqlite3.Error:
-            print("ERROR: Unable to open '{}' archive database".format(os.path.basename(relpath)))
+        except sqlite3.Error as e:
+            print("ERROR: Unable to open '{}' archive database (Error: {})".format(os.path.basename(relpath), e))
             return
 
         #Check archive db version
@@ -140,8 +179,8 @@ def reIndex(db, dirpath):
             r = archivedb.execute("SELECT name,url,language,description,location,joined,links,profile,profileformat,banner,bannerformat,videos,lastupdate FROM channel ORDER BY id DESC LIMIT 1;")
             info = (relpath, abspath) + r.fetchone()
             del r
-        except sqlite3.Error:
-            print("ERROR: Unable to read channel info from '{}' archive database".format(os.path.basename(relpath)))
+        except sqlite3.Error as e:
+            print("ERROR: Unable to read channel info from '{}' archive database (Error: {})".format(os.path.basename(relpath), e))
             return
 
         #Add or update channel info and get channel id
@@ -153,8 +192,8 @@ def reIndex(db, dirpath):
                 info = info[1:] + (relpath,)
                 update = "UPDATE channels SET abspath=?,name=?,url=?,language=?,description=?,location=?,joined=?,links=?,profile=?,profileformat=?,banner=?,bannerformat=?,videos=?,lastupdate=?,active=1 WHERE relpath = ?;"
                 db.execute(update, info)
-            except sqlite3.Error:
-                print("ERROR: Unable to write channel info from '{}'".format(os.path.basename(relpath)))
+            except sqlite3.Error as e:
+                print("ERROR: Unable to write channel info from '{}' (Error: {})".format(os.path.basename(relpath), e))
                 return
         cmd = "SELECT id FROM channels WHERE relpath = ?"
         r = db.execute(cmd, (relpath,)).fetchone()
@@ -166,8 +205,8 @@ def reIndex(db, dirpath):
             r = archivedb.execute("SELECT youtubeID,title,timestamp,description,subtitles,filename,thumb,thumbformat,duration,tags,language,width,height,resolution,viewcount,likecount,dislikecount,statisticsupdated,chapters FROM videos;")
             videos = r.fetchall()
             del r
-        except sqlite3.Error:
-            print("ERROR: Unable to read videos from '{}' archive database".format(os.path.basename(relpath)))
+        except sqlite3.Error as e:
+            print("ERROR: Unable to read videos from '{}' archive database (Error: {})".format(os.path.basename(relpath), e))
             return
 
         #Add or update video info
@@ -199,11 +238,13 @@ def reIndex(db, dirpath):
 # ########################################################################### #
 
 # --------------------------------------------------------------------------- #
-def connectDB(path):
+def connectDB(path, checkThread=True):
     '''Connect to existing db and upgrade it if necessary
 
     :param path: Path at which to store the new database
     :type path: string
+    :param checkThread: Whether sqlite3 should check the thread (default: True)
+    :type checkThread: boolean
 
     :raises: :class:``sqlite3.Error: Unable to create database
 
@@ -212,7 +253,7 @@ def connectDB(path):
     '''
 
     #Connect to database
-    dbCon = sqlite3.connect(path)
+    dbCon = sqlite3.connect(path, check_same_thread=checkThread)
     db = dbCon.cursor()
 
     #Get database version
@@ -275,11 +316,13 @@ def connectDB(path):
 # ########################################################################### #
 
 # --------------------------------------------------------------------------- #
-def createDB(path):
+def createDB(path, checkThread=True):
     '''Create database with the required tables
 
     :param path: Path at which to store the new database
     :type path: string
+    :param checkThread: Whether sqlite3 should check the thread (default: True)
+    :type checkThread: boolean
 
     :raises: :class:``sqlite3.Error: Unable to create database
 
@@ -346,7 +389,7 @@ def createDB(path):
                 ); """
 
     #Create database
-    dbCon = sqlite3.connect(path)
+    dbCon = sqlite3.connect(path, check_same_thread=checkThread)
     db = dbCon.cursor()
     #Set encoding
     db.execute("pragma encoding=UTF8")
