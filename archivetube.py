@@ -67,8 +67,7 @@ def main(args):
                     dbCon = createDB(dbPath, checkThread=False)
             db = dbCon.cursor()
         except sqlite3.Error as e:
-            print(e)
-            return
+            sys.exit("ERROR: Database error \"{}\"".format(e))
 
         #Check if folder to add to database
         if args.folder:
