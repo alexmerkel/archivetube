@@ -147,8 +147,7 @@ def reIndex(db, dirpath):
             if os.path.isfile(os.path.join(abspath, "archive.db")):
                 archives.append(item[0])
     if not archives:
-        print("ERROR: No archives in database")
-        sys.exit(1)
+        sys.exit("ERROR: No archives in database")
 
     #Set all channels and videos to inactive
     db.execute("UPDATE channels SET active = 0;")
@@ -163,7 +162,7 @@ def reIndex(db, dirpath):
             archivedb = sqlite3.connect(archivedbPath)
         except sqlite3.Error as e:
             print("ERROR: Unable to open '{}' archive database (Error: {})".format(os.path.basename(relpath), e))
-            return
+            continue
 
         #Check archive db version
         try:
@@ -181,7 +180,7 @@ def reIndex(db, dirpath):
             del r
         except sqlite3.Error as e:
             print("ERROR: Unable to read channel info from '{}' archive database (Error: {})".format(os.path.basename(relpath), e))
-            return
+            continue
 
         #Add or update channel info and get channel id
         try:
@@ -194,7 +193,7 @@ def reIndex(db, dirpath):
                 db.execute(update, info)
             except sqlite3.Error as e:
                 print("ERROR: Unable to write channel info from '{}' (Error: {})".format(os.path.basename(relpath), e))
-                return
+                continue
         cmd = "SELECT id FROM channels WHERE relpath = ?"
         r = db.execute(cmd, (relpath,)).fetchone()
         channelID = r[0]
@@ -207,7 +206,7 @@ def reIndex(db, dirpath):
             del r
         except sqlite3.Error as e:
             print("ERROR: Unable to read videos from '{}' archive database (Error: {})".format(os.path.basename(relpath), e))
-            return
+            continue
 
         #Add or update video info
         try:
@@ -224,9 +223,8 @@ def reIndex(db, dirpath):
                     update = "UPDATE videos SET channelID=?,title=?,timestamp=?,description=?,subtitles=?,filepath=?,thumb=?,thumbformat=?,duration=?,tags=?,language=?,width=?,height=?,resolution=?,viewcount=?,likecount=?,dislikecount=?,statisticsupdated=?,chapters=?,active=1 WHERE id = ?;"
                     db.execute(update, (channelID,) + info + (videoID,))
         except sqlite3.Error as e:
-            print("ERROR: Unable to write video info from '{}'".format(os.path.basename(relpath)))
-            print(e)
-            return
+            print("ERROR: Unable to write video info from '{}' (Error: {})".format(os.path.basename(relpath), e))
+            continue
 
         #Close archive database
         archivedb.close()
@@ -262,8 +260,7 @@ def connectDB(path, checkThread=True):
         version = r.fetchone()[0]
         del r
     except (sqlite3.Error, TypeError):
-        print("ERROR: Unsupported database!")
-        sys.exit(1)
+        sys.exit("ERROR: Unsupported database!")
 
     #Check if not up to date
     if version < __dbversion__:
@@ -304,10 +301,9 @@ def connectDB(path, checkThread=True):
                 db.execute("UPDATE info SET dbversion = ? WHERE id = 1", (version,))
                 dbCon.commit()
         except sqlite3.Error as e:
-            print("ERROR: Unable to upgrade database (\"{}\")".format(e))
             dbCon.rollback()
             dbCon.close()
-            sys.exit(1)
+            sys.exit("ERROR: Unable to upgrade database (\"{}\")".format(e))
 
     dbCon.commit()
 
