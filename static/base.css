@@ -4,11 +4,20 @@ html{line-height:1.15;-webkit-text-size-adjust:100%}body{margin:0}main{display:b
 :root {
     --color-high: #991b1e;
     --color-mildhigh: #994d4e;
-    --color-bg: #eef0f1;
-    --color-text: #000;
+    --color-bg: #fff;
+    --color-secbg: #eef0f1;
+    --color-text: #0b0c0d;
     --color-mildtext: #8f8f8f;
     --menu-width: 15vw;
     --size-small: 720px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-bg: #0e0f10;
+        --color-secbg: #191b1c;
+        --color-text: #eef0f1;
+    }
 }
 
 @media screen and (max-width: 720px) {
@@ -54,6 +63,14 @@ img {
     border: none;
 }
 
+div {
+    color: var(--color-text);
+}
+
+p {
+    color: var(--color-text);
+}
+
 .iconfont {
     font-family: Icons;
 }
@@ -66,7 +83,7 @@ img {
 }
 
 .main.titlebar {
-    background-color: var(--color-bg);
+    background-color: var(--color-secbg);
     width: calc(100vw - 100px);
     height: 3em;
     position: fixed;
@@ -136,7 +153,7 @@ img {
     left: 0;
     top: calc(3em + 2* 10px);
     overflow-y: scroll;
-    background-color: var(--color-bg);
+    background-color: var(--color-secbg);
 }
 
 .main.menuitems {
@@ -202,4 +219,5 @@ img {
     top: calc(3em + 2* 10px);
     height: calc(100vh - (3em + 2* 10px));
     overflow-y: scroll;
+    background-color: var(--color-bg);
 }
