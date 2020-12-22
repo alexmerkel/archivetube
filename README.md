@@ -37,6 +37,8 @@ Requirements
 *   [waitress](https://pypi.org/project/waitress/)
 *   [Pillow](https://pypi.org/project/Pillow/)
 *   [pycountry](https://pypi.org/project/pycountry/)
+*   [matplotlib](https://pypi.org/project/matplotlib/)
+*   [scipy](https://pypi.org/project/scipy/)
 
 License
 -------
