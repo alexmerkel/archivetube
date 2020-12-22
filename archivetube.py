@@ -7,11 +7,8 @@ import sqlite3
 import argparse
 import time
 from server import Server
-
-__prog__ = "archivetube"
-__version__ = "0.4.0"
-__dbversion__ = 4
-__archivedbversion__ = 5
+import atcommon as atc
+import atstatistics as ats
 
 # --------------------------------------------------------------------------- #
 def main(args):
@@ -20,12 +17,14 @@ def main(args):
     :param args: The command line arguments given by the user
     :type args: list
     '''
-    parser = argparse.ArgumentParser(prog=__prog__, description="Serve a web interface for archived videos")
+    parser = argparse.ArgumentParser(prog=atc.__prog__, description="Serve a web interface for archived videos")
     parser.add_argument("-v", "--verbose", action="store_const", dest="verbose", const=True, default=False, help="Print more status info")
-    parser.add_argument("-r", "--recursive", action="store_const", dest="recursive", const=True, default=False, help="Add all archives in subdirectories of the specified location to the database")
-    parser.add_argument("-f", "--folder", action="store", dest="folder", help="Add an archive directory to the database (Path will be stored as relative to DIR)")
     parser.add_argument("-m", "--memory", action="store_const", dest="memory", const=True, default=False, help="Keep whole database in memory (faster, but requires a lot of memory)")
-    parser.add_argument("-V", "--version", action="version", version='%(prog)s {}'.format(__version__))
+    parser.add_argument("-r", "--recursive", action="store_const", dest="recursive", const=True, default=False, help="Add all archives in subdirectories of the specified location to the database")
+    parser.add_argument("-f", "--folder", action="store", dest="folder", help="Add an archive directory to the database (path will be stored as relative to DIR). This will force -i and -s")
+    parser.add_argument("-i", "--index", action="store_const", dest="index", const=True, default=False, help="(Re-)create the index (this might take a while)")
+    parser.add_argument("-s", "--statistics", action="store_const", dest="statistics", const=True, default=False, help="(Re-)calculate the statistics (this might take a while)")
+    parser.add_argument("-V", "--version", action="version", version='%(prog)s {}'.format(atc.__version__))
     parser.add_argument("DIR", help="The directory to work in")
 
     args = parser.parse_args()
@@ -34,6 +33,14 @@ def main(args):
     path = os.path.normpath(os.path.abspath(args.DIR))
     if not os.path.isdir(path):
         parser.error("An existing directory must be specified")
+
+    #Check tasks
+    taskIndex = False
+    taskStats = False
+    if args.index or args.folder:
+        taskIndex = True
+    if args.statistics or args.folder:
+        taskStats = True
 
     if args.memory:
         print("Using in-memory database")
@@ -47,13 +54,13 @@ def main(args):
                 t1 = time.perf_counter()
                 if args.memory:
                     print("Reading existing database")
-                    fileDBCon = connectDB(dbPath)
+                    fileDBCon = atc.connectDB(dbPath)
                     dbCon = sqlite3.connect(":memory:", check_same_thread=False)
                     fileDBCon.backup(dbCon)
                     fileDBCon.close()
                 else:
                     print("Connect to existing database")
-                    dbCon = connectDB(dbPath, checkThread=False)
+                    dbCon = atc.connectDB(dbPath, checkThread=False)
                 t2 = time.perf_counter()
                 t = t2 - t1
                 if args.verbose:
@@ -62,10 +69,9 @@ def main(args):
                 #No database found
                 print("No database found, creating one")
                 if args.memory:
-                    dbCon = createDB(":memory:", checkThread=False)
+                    dbCon = atc.createDB(":memory:", checkThread=False)
                 else:
-                    dbCon = createDB(dbPath, checkThread=False)
-            db = dbCon.cursor()
+                    dbCon = atc.createDB(dbPath, checkThread=False)
         except sqlite3.Error as e:
             sys.exit("ERROR: Database error \"{}\"".format(e))
 
@@ -77,17 +83,43 @@ def main(args):
             else:
                 print("Adding archive '{}' to the database".format(rel))
             cmd = "INSERT INTO archives(relpath, abspath, recursive) VALUES(?,?,?)"
-            db.execute(cmd, (rel, args.folder, args.recursive))
+            dbCon.execute(cmd, (rel, args.folder, args.recursive))
+            if args.verbose:
+                print("Forcing index and statistics")
 
-        #(Re-) indexing
-        print("(Re-)building index")
-        t1 = time.perf_counter()
-        reIndex(db, path)
-        dbCon.commit()
-        t2 = time.perf_counter()
-        t = t2 - t1
-        if args.verbose:
-            print("Index time: {:0.4f} seconds".format(t))
+        #(Re-)indexing
+        if taskIndex:
+            print("(Re-)building index")
+            t1 = time.perf_counter()
+            db = dbCon.cursor()
+            reIndex(db, path)
+            dbCon.commit()
+            t2 = time.perf_counter()
+            t = t2 - t1
+            if args.verbose:
+                print("Index time: {:0.4f} seconds".format(t))
+        else:
+            if args.verbose:
+                print("Skip indexing")
+
+        #(Re-)calculating statistics
+        if taskStats:
+            print("(Re-)calculating statistics")
+            t1 = time.perf_counter()
+            dbCon.row_factory = sqlite3.Row
+            db = dbCon.cursor()
+            try:
+                ats.run(db, verbose=args.verbose)
+            except ats.StatisticsError as e:
+                sys.exit("ERROR in statistics: {}".format(e))
+            dbCon.commit()
+            t2 = time.perf_counter()
+            t = t2 - t1
+            if args.verbose:
+                print("Statistics time: {:0.4f} seconds".format(t))
+        else:
+            if args.verbose:
+                print("Skip calculting statistics")
 
         #Write changes to database
         if args.memory:
@@ -110,7 +142,7 @@ def main(args):
 
     #Start server
     try:
-        baseinfo = {"name": __prog__, "version": __version__}
+        baseinfo = {"name": atc.__prog__, "version": atc.__version__}
         server = Server(dbCon, baseinfo)
         server.daemon = True
         server.start()
@@ -124,7 +156,7 @@ def main(args):
 def reIndex(db, dirpath):
     '''(Re-)build the database
 
-    :param db: Connection to the metadata database
+    :param db: Connection to the tube database
     :type db: sqlite3.Cursor
     :param dirpath: The path of the working directory
     :type dirpath: string
@@ -168,7 +200,7 @@ def reIndex(db, dirpath):
             version = archivedb.execute("SELECT dbversion FROM channel ORDER BY id DESC LIMIT 1;").fetchone()[0]
         except (sqlite3.Error, TypeError):
             version = 1
-        if version < __archivedbversion__:
+        if version < atc.__archivedbversion__:
             print("ERROR: Archive database '{}' uses old database format. Please upgrade database using the latest version of ytarchiver".format(os.path.basename(relpath)))
             continue
 
@@ -232,171 +264,6 @@ def reIndex(db, dirpath):
     videos = db.execute("SELECT count(*) FROM videos WHERE active = 1;").fetchone()[0]
     channels = db.execute("SELECT count(*) FROM channels WHERE active = 1;").fetchone()[0]
     db.execute("UPDATE info SET lastupdate = ?, videos = ?, channels = ? WHERE id = 1", (int(time.time()), videos, channels))
-# ########################################################################### #
-
-# --------------------------------------------------------------------------- #
-def connectDB(path, checkThread=True):
-    '''Connect to existing db and upgrade it if necessary
-
-    :param path: Path at which to store the new database
-    :type path: string
-    :param checkThread: Whether sqlite3 should check the thread (default: True)
-    :type checkThread: boolean
-
-    :raises: :class:``sqlite3.Error: Unable to create database
-
-    :returns: Connection to database
-    :rtype: sqlite3.Connection
-    '''
-
-    #Connect to database
-    dbCon = sqlite3.connect(path, check_same_thread=checkThread)
-    db = dbCon.cursor()
-
-    #Get database version
-    try:
-        r = db.execute("SELECT dbversion FROM info ORDER BY id DESC LIMIT 1;")
-        version = r.fetchone()[0]
-        del r
-    except (sqlite3.Error, TypeError):
-        sys.exit("ERROR: Unsupported database!")
-
-    #Check if not up to date
-    if version < __dbversion__:
-        print("Upgrading database")
-        try:
-            #Perform upgrade to version 2
-            if version < 2:
-                #Clear video database
-                db.execute("DELETE FROM videos")
-                #Add new columns
-                db.execute('ALTER TABLE videos ADD COLUMN language TEXT NOT NULL;')
-                db.execute('ALTER TABLE videos ADD COLUMN width INTEGER NOT NULL;')
-                db.execute('ALTER TABLE videos ADD COLUMN height INTEGER NOT NULL;')
-                db.execute('ALTER TABLE videos ADD COLUMN resolution TEXT NOT NULL;')
-                db.execute('ALTER TABLE videos ADD COLUMN viewcount INTEGER;')
-                db.execute('ALTER TABLE videos ADD COLUMN likecount INTEGER;')
-                db.execute('ALTER TABLE videos ADD COLUMN dislikecount INTEGER;')
-                db.execute('ALTER TABLE videos ADD COLUMN statisticsupdated INTEGER NOT NULL;')
-                #Update db version
-                version = 2
-                db.execute("UPDATE info SET dbversion = ? WHERE id = 1", (version,))
-                dbCon.commit()
-            #Perform upgrade to version 3
-            if version < 3:
-                #Add active channel and video column
-                db.execute('ALTER TABLE channels ADD COLUMN active INTEGER NOT NULL DEFAULT 0;')
-                db.execute('ALTER TABLE videos ADD COLUMN active INTEGER NOT NULL DEFAULT 0;')
-                #Update db version
-                version = 3
-                db.execute("UPDATE info SET dbversion = ? WHERE id = 1", (version,))
-                dbCon.commit()
-            #Perform upgrade to version 4
-            if version < 4:
-                #Add active channel and video column
-                db.execute('ALTER TABLE videos ADD COLUMN chapters TEXT;')
-                #Update db version
-                version = 4
-                db.execute("UPDATE info SET dbversion = ? WHERE id = 1", (version,))
-                dbCon.commit()
-        except sqlite3.Error as e:
-            dbCon.rollback()
-            dbCon.close()
-            sys.exit("ERROR: Unable to upgrade database (\"{}\")".format(e))
-
-    dbCon.commit()
-
-    #Return database connection
-    return dbCon
-# ########################################################################### #
-
-# --------------------------------------------------------------------------- #
-def createDB(path, checkThread=True):
-    '''Create database with the required tables
-
-    :param path: Path at which to store the new database
-    :type path: string
-    :param checkThread: Whether sqlite3 should check the thread (default: True)
-    :type checkThread: boolean
-
-    :raises: :class:``sqlite3.Error: Unable to create database
-
-    :returns: Connection to the newly created database
-    :rtype: sqlite3.Connection
-    '''
-    infoCmd = """ CREATE TABLE IF NOT EXISTS info (
-                       id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
-                       lastupdate INTEGER NOT NULL,
-                       channels INTEGER NOT NULL,
-                       videos INTEGER NOT NULL,
-                       dbversion INTEGER NOT NULL
-                  ); """
-
-    archivesCmd = """ CREATE TABLE IF NOT EXISTS archives (
-                       id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
-                       relpath TEXT NOT NULL,
-                       abspath TEXT NOT NULL,
-                       recursive BOOLEAN NOT NULL
-                  ); """
-
-    channelsCmd = """ CREATE TABLE IF NOT EXISTS channels (
-                       id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
-                       relpath TEXT UNIQUE NOT NULL,
-                       abspath TEXT UNIQUE NOT NULL,
-                       name TEXT NOT NULL,
-                       url TEXT NOT NULL,
-                       language TEXT NOT NULL,
-                       description TEXT,
-                       location TEXT,
-                       joined TEXT,
-                       links TEXT,
-                       profile BLOB,
-                       profileformat TEXT,
-                       banner BLOB,
-                       bannerformat TEXT,
-                       videos INTEGER NOT NULL,
-                       lastupdate INTEGER NOT NULL,
-                       active INTEGER NOT NULL DEFAULT 0
-                  ); """
-
-    videosCmd = """ CREATE TABLE IF NOT EXISTS videos (
-                     id TEXT PRIMARY KEY UNIQUE NOT NULL,
-                     channelID INTEGER NOT NULL,
-                     title TEXT NOT NULL,
-                     timestamp INTEGER NOT NULL,
-                     description TEXT,
-                     subtitles TEXT,
-                     filepath TEXT NOT NULL,
-                     thumb BLOB,
-                     thumbformat TEXT,
-                     duration INTEGER,
-                     tags TEXT,
-                     language TEXT NOT NULL,
-                     width INTEGER NOT NULL,
-                     height INTEGER NOT NULL,
-                     resolution TEXT NOT NULL,
-                     viewcount INTEGER,
-                     likecount INTEGER,
-                     dislikecount INTEGER,
-                     statisticsupdated INTEGER NOT NULL,
-                     active INTEGER NOT NULL DEFAULT 0,
-                     chapters TEXT
-                ); """
-
-    #Create database
-    dbCon = sqlite3.connect(path, check_same_thread=checkThread)
-    db = dbCon.cursor()
-    #Set encoding
-    db.execute("pragma encoding=UTF8")
-    #Create tables
-    db.execute(infoCmd)
-    db.execute("INSERT INTO info(lastupdate, channels, videos, dbversion) VALUES(?,?,?,?)", (0, 0, 0, __dbversion__))
-    db.execute(archivesCmd)
-    db.execute(channelsCmd)
-    db.execute(videosCmd)
-    dbCon.commit()
-    #Return database connection
-    return dbCon
 # ########################################################################### #
 
 # --------------------------------------------------------------------------- #

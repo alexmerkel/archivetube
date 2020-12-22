@@ -30,6 +30,11 @@ class Server(threading.Thread):
     def __init__(self, dbCon, baseinfo, *args, **kw):
         '''
         Initialize the server
+
+        :param dbCon: Connection to the database
+        :type dbCon: sqlite3.Connection
+        :param baseinfo: A dict containing the name and the version
+        :type baseinfo: dict
         '''
         #Call superclass init
         super(Server, self).__init__(*args, **kw)
@@ -51,7 +56,7 @@ class Server(threading.Thread):
                 channels.append(dict(c))
         self.baseinfo["channels"] = channels
         #Setup server
-        self.app = flask.Flask("archivetube")
+        self.app = flask.Flask(self.baseinfo["name"])
         #Add routes
         self.app.add_url_rule("/", "home", self.getHome)
         self.app.add_url_rule("/watch", "watch", self.getWatch)
@@ -60,12 +65,14 @@ class Server(threading.Thread):
         self.app.add_url_rule("/channel/<channelID>/<func>/<sorting>/", "channel-sorting", self.getChannel, defaults={"page": None})
         self.app.add_url_rule("/channel/<channelID>/<func>/page/<int:page>/", "channel-page", self.getChannel, defaults={"sorting": "new"})
         self.app.add_url_rule("/channel/<channelID>/<func>/<sorting>/page/<int:page>/", "channel-page", self.getChannel)
+        self.app.add_url_rule("/statistics", "statistics", self.getStatistics)
         self.app.add_url_rule("/res/thumb/<videoID>", "thumb", self.getThumbnail)
         self.app.add_url_rule("/res/video/<videoID>", "video", self.getVideo)
         self.app.add_url_rule("/res/subtitles/<videoID>", "subtitles", self.getSubtitles)
         self.app.add_url_rule("/res/chapters/<videoID>", "chapters", self.getChapters)
         self.app.add_url_rule("/res/profile/<channelID>", "profile", self.getProfile)
         self.app.add_url_rule("/res/banner/<channelID>", "banner", self.getBanner)
+        self.app.add_url_rule("/res/plot/<plotName>", "plot", self.getPlot)
         #Add error handlers
         self.app.register_error_handler(403, self.getError)
         self.app.register_error_handler(404, self.getError)
@@ -78,7 +85,7 @@ class Server(threading.Thread):
         '''
         Start the server
         '''
-        waitress.serve(self.app, threads=6)
+        waitress.serve(self.app, threads=os.cpu_count())
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
@@ -306,6 +313,30 @@ class Server(threading.Thread):
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
+    def getStatistics(self):
+        '''
+        Return the statistics page
+        '''
+        #Get last updated from database
+        r = self.db.execute("SELECT statisticsupdated FROM info WHERE id=1;")
+        data = r.fetchone()
+        del r
+        #If not found, no statistics were generated yet, return 404
+        if not data or not data["statisticsupdated"]:
+            return '', 404
+        info = {"lastupdate": self.timestampToLocalTimeString(data["statisticsupdated"]), "agostring": self.timestampToHumanString(data["statisticsupdated"])}
+        #Get latest stats from database
+        r = self.db.execute("SELECT * FROM statsOverall ORDER BY timestamp DESC LIMIT 1;")
+        data = r.fetchone()
+        del r
+        #If not found, no statistics were generated yet, return 404
+        if not data:
+            return '', 404
+        info = {**info, **dict(data)}
+        return flask.render_template("statistics.html", title=self.baseinfo["name"] + " - Statistics", info=info, base=self.baseinfo)
+    # ########################################################################### #
+
+    # --------------------------------------------------------------------------- #
     def getThumbnail(self, videoID):
         '''
         Return the video thumbnail
@@ -416,6 +447,51 @@ class Server(threading.Thread):
         #Respond with image
         r = flask.make_response(img)
         r.headers.set('Content-Type', data["bannerformat"])
+        r.cache_control.public = True
+        r.cache_control.max_age = 300
+        return r
+    # ########################################################################### #
+
+    # --------------------------------------------------------------------------- #
+    def getPlot(self, plotName):
+        '''
+        Return the plot with a given name incl. file extention
+        '''
+        #If no id supplied, return 404
+        if not plotName:
+            return '', 404
+
+        #See if dark or light mode was requested
+        darkMode = False
+        if flask.request.args:
+            try:
+                mode = flask.request.args.get("m")
+                if mode == "dark":
+                    darkMode = True
+            except ValueError:
+                pass
+
+        #Get requested file type
+        name, ext = os.path.splitext(plotName)
+        if ext == ".svg":
+            field = "svgDark" if darkMode else "svgLight"
+            mime = "image/svg+xml"
+        else:
+            field = "png"
+            mime = "image/png"
+
+        #Get plot from database
+        cmd = "SELECT {} FROM statsPlots WHERE name = ?".format(field)
+        r = self.db.execute(cmd, (name,))
+        data = r.fetchone()
+        del r
+        #If not found, return 404
+        if not data or not data[field]:
+            return '', 404
+
+        #Respond with image
+        r = flask.make_response(data[field])
+        r.headers.set('Content-Type', mime)
         r.cache_control.public = True
         r.cache_control.max_age = 300
         return r

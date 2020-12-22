@@ -70,6 +70,12 @@
     grid-column: span 2;
 }
 
+@media screen and (max-width: 550px) {
+    .watch.infosbox {
+        grid-column: 1;
+    }
+}
+
 .watch.channel.box {
     height: 80px;
     margin: 20px 0;
@@ -136,6 +142,13 @@
     white-space: pre-line;
     font-weight: 300;
     text-align: justify;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.watch.description::after {
+  content: '';
+  display: block;
 }
 
 @media screen and (max-width: 720px) {

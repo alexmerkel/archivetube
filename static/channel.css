@@ -60,6 +60,7 @@
     width: calc(100vw - var(--menu-width));
     font-weight: 400;
     font-size: 1em;
+    background-color: var(--color-bg);
     padding: 20px 0;
 }
 
@@ -115,13 +116,7 @@
 }
 
 .channel.videos.videosbox {
-    margin: 0 50px 50px;
-}
-
-@media screen and (max-width: 720px) {
-    .channel.videos.videosbox {
-        margin: 0 20px 50px;
-    }
+    margin: 0 var(--margin-side) 50px;
 }
 
 .channel.videos.videosnav {
@@ -207,7 +202,7 @@
     text-decoration: none;
     display: block;
     position: relative;
-    background: #fff;
+    background: var(--color-secbg);
 }
 
 .channel.videos.sorting li > a {
@@ -242,8 +237,9 @@
 
 .channel.videos.grid.video {
     width: 100%;
+    display: flex;
+    flex-direction: column;
     grid-gap: 0;
-    padding: 0;
 }
 
 .channel.videos.grid.video > a {
@@ -289,7 +285,7 @@
 }
 
 .channel.info.infobox {
-    margin: 35px 50px 50px;
+    margin: 35px var(--margin-side) 50px;
 }
 
 .channel.info.infobox > section {
@@ -313,6 +309,7 @@
 @media screen and (max-width: 720px) {
     .channel.info.description {
         width: 100%;
+        overflow-x: hidden;
     }
 }
 
@@ -335,7 +332,7 @@
     margin: 0;
 }
 
-@media only screen and (max-width: 720px) {
+@media screen and (max-width: 720px) {
     .channel.info.infoitems {
         width: 100%;
     }

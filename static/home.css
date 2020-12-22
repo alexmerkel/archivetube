@@ -1,18 +1,22 @@
 .home.statistics {
-    margin: 50px 50px;
+    margin: 50px var(--margin-side);
+}
+
+@media screen and (max-width: 1050px) {
+    .home.statistics {
+        font-size: 1.2em;
+    }
+}
+
+.home.statistics > a {
+    margin: 0;
     display: flex;
     flex-direction: row;
     justify-content: space-evenly;
     color: var(--color-mildtext);
     font-weight: 500;
     font-size: 1.5em;
-}
-
-@media screen and (max-width: 1050px) {
-    .home.statistics {
-        margin: 50px 30px;
-        font-size: 1.2em;
-    }
+    text-decoration: none;
 }
 
 @media screen and (max-width: 720px) {
@@ -22,22 +26,18 @@
     }
 }
 
-.home.statistics > p {
+.home.statistics > a > p {
+    flex: 1 1 0px;
     margin: 0 10px;
+    text-align: center;
 }
 
 .home.channelsbox {
-    margin: 50px 50px;
+    margin: 50px var(--margin-side);
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 450px));
     grid-gap: 50px;
     justify-content: space-evenly;
-}
-
-@media screen and (max-width: 550px) {
-    .home.channelsbox {
-        margin: 50px 0;
-    }
 }
 
 .home.channel.channelbox {

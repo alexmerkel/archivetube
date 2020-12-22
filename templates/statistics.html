@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='statistics.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="statistics title">
+    <h2>Archive statistics</h2>
+    <p title="{{ info.lastupdate }}">Last updated {{ info.agostring }} ago</p>
+</div>
+<div class="statistics infobox">
+    <div>
+        <h4>Total videos</h4>
+        <p>{{ info.videos }}</p>
+    </div>
+    <div></div>
+    {% set i = 0 %}
+    {% if info.v8k %}
+    {% set i = i + 1 %}
+    <div>
+        <h4>8K videos</h4>
+        <p>{{ info.v8k }}</p>
+        <span>{{ (info.fraction8k * 100)|round(2) }}%</span>
+    </div>
+    {% endif %}
+    {% if info.v4k %}
+    {% set i = i + 1 %}
+    <div>
+        <h4>4K videos</h4>
+        <p>{{ info.v4k }}</p>
+        <span>{{ (info.fraction4k * 100)|round(2) }}%</span>
+    </div>
+    {% endif %}
+    {% if info.vFullHD %}
+    {% set i = i + 1 %}
+    <div>
+        <h4>Full HD videos</h4>
+        <p>{{ info.vFullHD }}</p>
+        <span>{{ (info.fractionFullHD * 100)|round(2) }}%</span>
+    </div>
+    {% endif %}
+    {% if info.vHD %}
+    {% set i = i + 1 %}
+    <div>
+        <h4>HD videos</h4>
+        <p>{{ info.vHD }}</p>
+        <span>{{ (info.fractionHD * 100)|round(2) }}%</span>
+    </div>
+    {% endif %}
+    {% if info.vSD %}
+    {% set i = i + 1 %}
+    <div>
+        <h4>SD videos</h4>
+        <p>{{ info.vSD }}</p>
+        <span>{{ (info.fractionSD * 100)|round(2) }}%</span>
+    </div>
+    {% endif %}
+    {% if info.vLD %}
+    {% set i = i + 1 %}
+    <div>
+        <h4>LD videos</h4>
+        <p>{{ info.vLD }}</p>
+        <span>{{ (info.fractionLD * 100)|round(2) }}%</span>
+    </div>
+    {% endif %}
+    {% if not i is divisibleby 2 %}
+    <div></div>
+    {% endif %}
+    <div>
+        <h4>Videos w/subtitles</h4>
+        <p>{{ info.subtitles }}</p>
+        <span>{{ (info.fractionSubtitles * 100)|round(2) }}%</span>
+    </div>
+    <div>
+        <h4>Videos w/chapters</h4>
+        <p>{{ info.chapters }}</p>
+        <span>{{ (info.fractionChapters * 100)|round(2) }}%</span>
+    </div>
+</div>
+<div class="statistics plotbox">
+    <h3>Weekly plots</h3>
+    <p>Content</p>
+    <picture>
+        <source srcset="{{ url_for('plot', plotName='content.svg', m='dark') }}" media="(prefers-color-scheme: dark)">
+        <img src="{{ url_for('plot', plotName='content.svg', m='light') }}">
+    </picture>
+    <p>Features</p>
+    <picture>
+        <source srcset="{{ url_for('plot', plotName='features.svg', m='dark') }}" media="(prefers-color-scheme: dark)">
+        <img src="{{ url_for('plot', plotName='features.svg', m='light') }}">
+    </picture>
+    <p>Resolutions</p>
+    <picture>
+        <source srcset="{{ url_for('plot', plotName='resolutions.svg', m='dark') }}" media="(prefers-color-scheme: dark)">
+        <img src="{{ url_for('plot', plotName='resolutions.svg', m='light') }}">
+    </picture>
+</div>
+{% endblock %}

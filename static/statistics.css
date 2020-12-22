@@ -1,0 +1,69 @@
+.statistics.title {
+    margin: 50px var(--margin-side);
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+}
+
+.statistics.title > p{
+    margin-top: 0;
+}
+
+.statistics.infobox {
+    margin: 50px var(--margin-side);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(100px, 300px));
+    justify-items: stretch;
+    justify-content: stretch;
+    grid-auto-flow: row;
+}
+
+.statistics.infobox > div {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+}
+
+.statistics.infobox > div > h4{
+    margin-bottom: 0;
+}
+
+.statistics.infobox > div > p{
+    margin: 0;
+    margin-top: 0.5em;
+}
+
+.statistics.infobox > div > span{
+    margin-top: 0.5em;
+    color: var(--color-mildtext);
+}
+
+.statistics.plotbox {
+    margin: 50px var(--margin-side);
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+}
+
+.statistics.plotbox > picture {
+    margin-top: 0;
+    margin-bottom: 50px;
+}
+
+@media screen and (max-width: 550px) {
+    .statistics.plotbox > picture {
+        margin-bottom: 35px;
+    }
+}
+
+.statistics.plotbox > picture > img {
+    object-fit: contain;
+    width: 100%;
+}
+
+.statistics.plotbox > p {
+    margin: 0;
+}

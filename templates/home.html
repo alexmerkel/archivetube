@@ -6,9 +6,11 @@
 
 {% block body %}
 <div class="home statistics">
+    <a href="{{ url_for('statistics') }}">
     <p>{{ info.channels }} {{ "channels" if info.channels > 1 else "channel" }}</p>
     <p>{{ info.videos }} {{ "videos" if info.videos > 1 else "video" }}</p>
     <p title="{{ info.lastupdate }}">Last indexed {{ info.agostring }} ago</p>
+    </a>
 </div>
 <div class="home channelsbox">
 {% for channel in channels %}
