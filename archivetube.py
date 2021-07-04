@@ -122,7 +122,7 @@ def main(args):
                 print("Skip calculting statistics")
 
         #Write changes to database
-        if args.memory:
+        if args.memory and (taskIndex or taskStats):
             print("Writing new database")
             t1 = time.perf_counter()
             try:
@@ -136,6 +136,9 @@ def main(args):
             t = t2 - t1
             if args.verbose:
                 print("Write time: {:0.4f} seconds".format(t))
+        else:
+            if args.verbose:
+                print("Skip writing database")
 
     except KeyboardInterrupt:
         print("Aborted!")
