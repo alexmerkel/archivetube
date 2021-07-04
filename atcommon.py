@@ -5,7 +5,7 @@ import sys
 import sqlite3
 
 __prog__ = "archivetube"
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __dbversion__ = 5
 __archivedbversion__ = 5
 
