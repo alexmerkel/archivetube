@@ -85,6 +85,7 @@ class Server(threading.Thread):
         '''
         Start the server
         '''
+        print("Starting server")
         waitress.serve(self.app, threads=os.cpu_count())
     # ########################################################################### #
 

@@ -91,8 +91,7 @@ def main(args):
         if taskIndex:
             print("(Re-)building index")
             t1 = time.perf_counter()
-            db = dbCon.cursor()
-            reIndex(db, path)
+            reIndex(dbCon, path)
             dbCon.commit()
             t2 = time.perf_counter()
             t = t2 - t1
@@ -157,7 +156,7 @@ def reIndex(db, dirpath):
     '''(Re-)build the database
 
     :param db: Connection to the tube database
-    :type db: sqlite3.Cursor
+    :type db: sqlite3.Connection
     :param dirpath: The path of the working directory
     :type dirpath: string
 
@@ -180,9 +179,9 @@ def reIndex(db, dirpath):
     if not archives:
         sys.exit("ERROR: No archives in database")
 
-    #Set all channels and videos to inactive
+    #Set all channels to inactive and delete all videos
     db.execute("UPDATE channels SET active = 0;")
-    db.execute("UPDATE videos SET active = 0;")
+    db.execute("DELETE FROM videos;")
 
     #Copy info
     for relpath in archives:
@@ -230,35 +229,16 @@ def reIndex(db, dirpath):
         channelID = r[0]
         del r
 
-        #Read video info
-        try:
-            r = archivedb.execute("SELECT youtubeID,title,timestamp,description,subtitles,filename,thumb,thumbformat,duration,tags,language,width,height,resolution,viewcount,likecount,dislikecount,statisticsupdated,chapters FROM videos;")
-            videos = r.fetchall()
-            del r
-        except sqlite3.Error as e:
-            print("ERROR: Unable to read videos from '{}' archive database (Error: {})".format(os.path.basename(relpath), e))
-            continue
-
-        #Add or update video info
-        try:
-            for video in videos:
-                #Get video id and convert filename to absolute file path
-                videoID = video[0]
-                info = list(video[1:])
-                info[4] = os.path.join(abspath, info[4])
-                info = tuple(info)
-                try:
-                    insert = "INSERT INTO videos(id,channelID,title,timestamp,description,subtitles,filepath,thumb,thumbformat,duration,tags,language,width,height,resolution,viewcount,likecount,dislikecount,statisticsupdated, chapters, active) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1);"
-                    db.execute(insert, (videoID, channelID) + info)
-                except sqlite3.Error:
-                    update = "UPDATE videos SET channelID=?,title=?,timestamp=?,description=?,subtitles=?,filepath=?,thumb=?,thumbformat=?,duration=?,tags=?,language=?,width=?,height=?,resolution=?,viewcount=?,likecount=?,dislikecount=?,statisticsupdated=?,chapters=?,active=1 WHERE id = ?;"
-                    db.execute(update, (channelID,) + info + (videoID,))
-        except sqlite3.Error as e:
-            print("ERROR: Unable to write video info from '{}' (Error: {})".format(os.path.basename(relpath), e))
-            continue
-
         #Close archive database
         archivedb.close()
+        db.commit()
+
+        #Read video info
+        db.execute("ATTACH DATABASE ? AS archivedb", (archivedbPath,))
+        insert = "INSERT INTO videos(id,channelID,title,timestamp,description,subtitles,filepath,thumb,thumbformat,duration,tags,language,width,height,resolution,viewcount,likecount,dislikecount,statisticsupdated,chapters,active) SELECT youtubeID,{},title,timestamp,description,subtitles,\"{}{}\" || filename,thumb,thumbformat,duration,tags,language,width,height,resolution,viewcount,likecount,dislikecount,statisticsupdated,chapters,\"1\" FROM archivedb.videos;".format(channelID, abspath, os.sep)
+        db.execute(insert)
+        db.commit()
+        db.execute("DETACH DATABASE archivedb")
 
     #Update info fields
     videos = db.execute("SELECT count(*) FROM videos WHERE active = 1;").fetchone()[0]

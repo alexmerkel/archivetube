@@ -255,7 +255,8 @@ def calculate(db, verbose=False, veryverbose=False):
                 videos8k += 1
 
             #Get video duration
-            totalDuration += video["duration"]
+            if video["duration"]:
+                totalDuration += video["duration"]
 
             #Get subtitles
             if video["subtitles"]:
