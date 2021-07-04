@@ -27,7 +27,7 @@ class Server(threading.Thread):
     '''
 
     # --------------------------------------------------------------------------- #
-    def __init__(self, dbCon, baseinfo, *args, **kw):
+    def __init__(self, dbCon, baseinfo, listen, *args, **kw):
         '''
         Initialize the server
 
@@ -35,49 +35,52 @@ class Server(threading.Thread):
         :type dbCon: sqlite3.Connection
         :param baseinfo: A dict containing the name and the version
         :type baseinfo: dict
+        :param listen: ip:port combination the server should listen on
+        :type listen: string
         '''
         #Call superclass init
         super(Server, self).__init__(*args, **kw)
+        self._listen = listen
         #Set locale
         locale.setlocale(locale.LC_ALL, '')
         #Define url finder
-        self.urlfinder = URLFinder()
+        self._urlfinder = URLFinder()
         #Setup database
-        self.db = dbCon
-        self.db.row_factory = sqlite3.Row
+        self._db = dbCon
+        self._db.row_factory = sqlite3.Row
         #Base info dict
-        self.baseinfo = baseinfo
-        r = self.db.execute("SELECT id,name FROM channels WHERE active = 1 ORDER BY name COLLATE NOCASE ASC")
+        self._baseinfo = baseinfo
+        r = self._db.execute("SELECT id,name FROM channels WHERE active = 1 ORDER BY name COLLATE NOCASE ASC")
         data = r.fetchall()
         del r
         channels = []
         for c in data:
             if c and c["name"]:
                 channels.append(dict(c))
-        self.baseinfo["channels"] = channels
+        self._baseinfo["channels"] = channels
         #Setup server
-        self.app = flask.Flask(self.baseinfo["name"])
+        self._app = flask.Flask(self._baseinfo["name"])
         #Add routes
-        self.app.add_url_rule("/", "home", self.getHome)
-        self.app.add_url_rule("/watch", "watch", self.getWatch)
-        self.app.add_url_rule("/channel/<channelID>/", "channel", self.getChannel, defaults={"func": "home", "page": None, "sorting": "new"})
-        self.app.add_url_rule("/channel/<channelID>/<func>/", "channel-func", self.getChannel, defaults={"page": None, "sorting": "new"})
-        self.app.add_url_rule("/channel/<channelID>/<func>/<sorting>/", "channel-sorting", self.getChannel, defaults={"page": None})
-        self.app.add_url_rule("/channel/<channelID>/<func>/page/<int:page>/", "channel-page", self.getChannel, defaults={"sorting": "new"})
-        self.app.add_url_rule("/channel/<channelID>/<func>/<sorting>/page/<int:page>/", "channel-page", self.getChannel)
-        self.app.add_url_rule("/statistics", "statistics", self.getStatistics)
-        self.app.add_url_rule("/res/thumb/<videoID>", "thumb", self.getThumbnail)
-        self.app.add_url_rule("/res/video/<videoID>", "video", self.getVideo)
-        self.app.add_url_rule("/res/subtitles/<videoID>", "subtitles", self.getSubtitles)
-        self.app.add_url_rule("/res/chapters/<videoID>", "chapters", self.getChapters)
-        self.app.add_url_rule("/res/profile/<channelID>", "profile", self.getProfile)
-        self.app.add_url_rule("/res/banner/<channelID>", "banner", self.getBanner)
-        self.app.add_url_rule("/res/plot/<plotName>", "plot", self.getPlot)
+        self._app.add_url_rule("/", "home", self._getHome)
+        self._app.add_url_rule("/watch", "watch", self._getWatch)
+        self._app.add_url_rule("/channel/<channelID>/", "channel", self._getChannel, defaults={"func": "home", "page": None, "sorting": "new"})
+        self._app.add_url_rule("/channel/<channelID>/<func>/", "channel-func", self._getChannel, defaults={"page": None, "sorting": "new"})
+        self._app.add_url_rule("/channel/<channelID>/<func>/<sorting>/", "channel-sorting", self._getChannel, defaults={"page": None})
+        self._app.add_url_rule("/channel/<channelID>/<func>/page/<int:page>/", "channel-page", self._getChannel, defaults={"sorting": "new"})
+        self._app.add_url_rule("/channel/<channelID>/<func>/<sorting>/page/<int:page>/", "channel-page", self._getChannel)
+        self._app.add_url_rule("/statistics", "statistics", self._getStatistics)
+        self._app.add_url_rule("/res/thumb/<videoID>", "thumb", self._getThumbnail)
+        self._app.add_url_rule("/res/video/<videoID>", "video", self._getVideo)
+        self._app.add_url_rule("/res/subtitles/<videoID>", "subtitles", self._getSubtitles)
+        self._app.add_url_rule("/res/chapters/<videoID>", "chapters", self._getChapters)
+        self._app.add_url_rule("/res/profile/<channelID>", "profile", self._getProfile)
+        self._app.add_url_rule("/res/banner/<channelID>", "banner", self._getBanner)
+        self._app.add_url_rule("/res/plot/<plotName>", "plot", self._getPlot)
         #Add error handlers
-        self.app.register_error_handler(403, self.getError)
-        self.app.register_error_handler(404, self.getError)
-        self.app.register_error_handler(410, self.getError)
-        self.app.register_error_handler(500, self.getError)
+        self._app.register_error_handler(403, self._getError)
+        self._app.register_error_handler(404, self._getError)
+        self._app.register_error_handler(410, self._getError)
+        self._app.register_error_handler(500, self._getError)
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
@@ -85,40 +88,41 @@ class Server(threading.Thread):
         '''
         Start the server
         '''
-        print("Starting server")
-        waitress.serve(self.app, threads=os.cpu_count())
+        urls = ["http://{}/".format(u) for u in self._listen.split()]
+        print("Starting server at {}".format(", ".join(urls)))
+        waitress.serve(self._app, threads=os.cpu_count(), listen=self._listen)
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getHome(self):
+    def _getHome(self):
         '''
         Return the landing page
         '''
         #Get channel info from database
-        r = self.db.execute("SELECT id,name,videos,lastupdate FROM channels WHERE active = 1 ORDER BY name COLLATE NOCASE ASC")
+        r = self._db.execute("SELECT id,name,videos,lastupdate FROM channels WHERE active = 1 ORDER BY name COLLATE NOCASE ASC")
         data = r.fetchall()
         del r
         channels = []
         for c in data:
             if c and c["name"]:
                 c = dict(c)
-                c["agostring"] = self.timestampToHumanString(c["lastupdate"])
-                c["lastupdate"] = self.timestampToLocalTimeString(c["lastupdate"])
+                c["agostring"] = self._timestampToHumanString(c["lastupdate"])
+                c["lastupdate"] = self._timestampToLocalTimeString(c["lastupdate"])
                 channels.append(c)
         if not channels:
-            return self.getErrorPage(404, "No channel data in database")
+            return self._getErrorPage(404, "No channel data in database")
         #Get general info from database
-        r = self.db.execute("SELECT lastupdate,channels,videos FROM info ORDER BY id DESC LIMIT 1;")
+        r = self._db.execute("SELECT lastupdate,channels,videos FROM info ORDER BY id DESC LIMIT 1;")
         info = dict(r.fetchone())
         del r
-        info["agostring"] = self.timestampToHumanString(info["lastupdate"])
-        info["lastupdate"] = self.timestampToLocalTimeString(info["lastupdate"])
+        info["agostring"] = self._timestampToHumanString(info["lastupdate"])
+        info["lastupdate"] = self._timestampToLocalTimeString(info["lastupdate"])
         #Render template
-        return flask.render_template("home.html", channels=channels, info=info, base=self.baseinfo)
+        return flask.render_template("home.html", channels=channels, info=info, base=self._baseinfo)
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getWatch(self):
+    def _getWatch(self):
         '''
         Return the video watch page
         '''
@@ -129,29 +133,29 @@ class Server(threading.Thread):
             return flask.redirect(flask.url_for("home"))
 
         #Get video info from database
-        r = self.db.execute("SELECT id,channelID,title,timestamp,description,subtitles,filepath,tags,language,viewcount,statisticsupdated,likecount,dislikecount,chapters FROM videos WHERE id = ?", (videoID,))
+        r = self._db.execute("SELECT id,channelID,title,timestamp,description,subtitles,filepath,tags,language,viewcount,statisticsupdated,likecount,dislikecount,chapters FROM videos WHERE id = ?", (videoID,))
         video = r.fetchone()
         del r
         if not video:
-            return self.getErrorPage(404, "Video not found")
+            return self._getErrorPage(404, "Video not found")
         video = dict(video)
         #Get channel from database
-        r = self.db.execute("SELECT id,name,videos,lastupdate FROM channels WHERE id = ?", (video["channelID"],))
+        r = self._db.execute("SELECT id,name,videos,lastupdate FROM channels WHERE id = ?", (video["channelID"],))
         channel = r.fetchone()
         del r
         if not channel:
-            return self.getErrorPage(404, "Video channel not found")
+            return self._getErrorPage(404, "Video channel not found")
         channel = dict(channel)
         #Convert timestamp
-        channel["lastupdate"] = self.timestampToHumanString(channel["lastupdate"])
+        channel["lastupdate"] = self._timestampToHumanString(channel["lastupdate"])
         #Prepare statistics
-        video["views"] = self.intToHuman(video["viewcount"])
-        video["viewcount"] = self.intToStr(video["viewcount"])
-        video["likes"] = self.intToHuman(video["likecount"])
-        video["likecount"] = self.intToStr(video["likecount"])
-        video["dislikes"] = self.intToHuman(video["dislikecount"])
-        video["dislikecount"] = self.intToStr(video["dislikecount"])
-        video["statisticsupdated"] = self.timestampToHumanString(video["statisticsupdated"])
+        video["views"] = self._intToHuman(video["viewcount"])
+        video["viewcount"] = self._intToStr(video["viewcount"])
+        video["likes"] = self._intToHuman(video["likecount"])
+        video["likecount"] = self._intToStr(video["likecount"])
+        video["dislikes"] = self._intToHuman(video["dislikecount"])
+        video["dislikecount"] = self._intToStr(video["dislikecount"])
+        video["statisticsupdated"] = self._timestampToHumanString(video["statisticsupdated"])
         #Turn subtitles and chapters into boolean
         video["subtitles"] = bool(video["subtitles"])
         video["chapters"] = bool(video["chapters"])
@@ -164,48 +168,48 @@ class Server(threading.Thread):
             video["subtitles"] = False
             video["chapters"] = False
         #Get next video info from database
-        r = self.db.execute("SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? AND timestamp > ? ORDER BY timestamp ASC LIMIT 1;", (channel["id"], video["timestamp"]))
+        r = self._db.execute("SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? AND timestamp > ? ORDER BY timestamp ASC LIMIT 1;", (channel["id"], video["timestamp"]))
         nextVideo = r.fetchone()
         del r
         if nextVideo:
             nextVideo = dict(nextVideo)
             #Convert timestamp
-            nextVideo["duration"] = self.secToTime(nextVideo["duration"])
-            nextVideo["agestring"] = self.timestampToHumanString(nextVideo["timestamp"])
-            nextVideo["timestamp"] = self.timestampToLocalTimeString(nextVideo["timestamp"])
-            nextVideo["views"] = self.intToHuman(nextVideo["viewcount"])
-            nextVideo["statisticsupdated"] = self.timestampToHumanString(nextVideo["statisticsupdated"])
-            nextVideo["quality"] = self.qualityLabel(nextVideo["resolution"])
+            nextVideo["duration"] = self._secToTime(nextVideo["duration"])
+            nextVideo["agestring"] = self._timestampToHumanString(nextVideo["timestamp"])
+            nextVideo["timestamp"] = self._timestampToLocalTimeString(nextVideo["timestamp"])
+            nextVideo["views"] = self._intToHuman(nextVideo["viewcount"])
+            nextVideo["statisticsupdated"] = self._timestampToHumanString(nextVideo["statisticsupdated"])
+            nextVideo["quality"] = self._qualityLabel(nextVideo["resolution"])
         else:
             nextVideo = None
         #Get previous video info from database
-        r = self.db.execute("SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? AND timestamp < ? ORDER BY timestamp DESC LIMIT 1;", (channel["id"], video["timestamp"]))
+        r = self._db.execute("SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? AND timestamp < ? ORDER BY timestamp DESC LIMIT 1;", (channel["id"], video["timestamp"]))
         previousVideo = r.fetchone()
         del r
         if previousVideo:
             previousVideo = dict(previousVideo)
             #Convert timestamp
-            previousVideo["duration"] = self.secToTime(previousVideo["duration"])
-            previousVideo["agestring"] = self.timestampToHumanString(previousVideo["timestamp"])
-            previousVideo["timestamp"] = self.timestampToLocalTimeString(previousVideo["timestamp"])
-            previousVideo["views"] = self.intToHuman(previousVideo["viewcount"])
-            previousVideo["statisticsupdated"] = self.timestampToHumanString(previousVideo["statisticsupdated"])
-            previousVideo["quality"] = self.qualityLabel(previousVideo["resolution"])
+            previousVideo["duration"] = self._secToTime(previousVideo["duration"])
+            previousVideo["agestring"] = self._timestampToHumanString(previousVideo["timestamp"])
+            previousVideo["timestamp"] = self._timestampToLocalTimeString(previousVideo["timestamp"])
+            previousVideo["views"] = self._intToHuman(previousVideo["viewcount"])
+            previousVideo["statisticsupdated"] = self._timestampToHumanString(previousVideo["statisticsupdated"])
+            previousVideo["quality"] = self._qualityLabel(previousVideo["resolution"])
         else:
             previousVideo = None
         #Get latest video info from database
-        r = self.db.execute("SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? ORDER BY timestamp DESC LIMIT 1", (channel["id"],))
+        r = self._db.execute("SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? ORDER BY timestamp DESC LIMIT 1", (channel["id"],))
         latestVideo = r.fetchone()
         del r
         if latestVideo:
             latestVideo = dict(latestVideo)
             #Convert timestamp
-            latestVideo["duration"] = self.secToTime(latestVideo["duration"])
-            latestVideo["agestring"] = self.timestampToHumanString(latestVideo["timestamp"])
-            latestVideo["timestamp"] = self.timestampToLocalTimeString(latestVideo["timestamp"])
-            latestVideo["views"] = self.intToHuman(latestVideo["viewcount"])
-            latestVideo["statisticsupdated"] = self.timestampToHumanString(latestVideo["statisticsupdated"])
-            latestVideo["quality"] = self.qualityLabel(latestVideo["resolution"])
+            latestVideo["duration"] = self._secToTime(latestVideo["duration"])
+            latestVideo["agestring"] = self._timestampToHumanString(latestVideo["timestamp"])
+            latestVideo["timestamp"] = self._timestampToLocalTimeString(latestVideo["timestamp"])
+            latestVideo["views"] = self._intToHuman(latestVideo["viewcount"])
+            latestVideo["statisticsupdated"] = self._timestampToHumanString(latestVideo["statisticsupdated"])
+            latestVideo["quality"] = self._qualityLabel(latestVideo["resolution"])
             #Only show latest video if this or the next video is not the latest
             if latestVideo["id"] == video["id"] or latestVideo["id"] == nextVideo["id"]:
                 latestVideo = None
@@ -214,52 +218,52 @@ class Server(threading.Thread):
         #Only interested if subtitles exist or not
         video["subtitles"] = bool(video["subtitles"])
         #Convert timestamp
-        video["agestring"] = self.timestampToHumanString(video["timestamp"])
-        video["timestamp"] = self.timestampToLocalTimeString(video["timestamp"])
+        video["agestring"] = self._timestampToHumanString(video["timestamp"])
+        video["timestamp"] = self._timestampToLocalTimeString(video["timestamp"])
         #Get mime type
         video["mimetype"] = mimetypes.guess_type(video["filepath"])[0]
         #Convert links in description
-        video["description"] = self.urlfinder.find(video["description"])
+        video["description"] = self._urlfinder.find(video["description"])
         #Render template
-        return flask.render_template("watch.html", title=video["title"], video=video, nextVideo=nextVideo, previousVideo=previousVideo, latestVideo=latestVideo, channel=channel, base=self.baseinfo)
+        return flask.render_template("watch.html", title=video["title"], video=video, nextVideo=nextVideo, previousVideo=previousVideo, latestVideo=latestVideo, channel=channel, base=self._baseinfo)
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getChannel(self, channelID, func, page, sorting):
+    def _getChannel(self, channelID, func, page, sorting):
         '''
         Return the channel page
         '''
         #If no id supplied, return 404
         if not channelID:
-            return self.getErrorPage(404, "No channel ID specified")
+            return self._getErrorPage(404, "No channel ID specified")
 
         #Get info from database
-        r = self.db.execute("SELECT id,name,description,location,joined,links,videos,lastupdate FROM channels WHERE id = ?", (channelID,))
+        r = self._db.execute("SELECT id,name,description,location,joined,links,videos,lastupdate FROM channels WHERE id = ?", (channelID,))
         data = r.fetchone()
         del r
         if not data or not data["name"]:
-            return self.getErrorPage(404, "Unable to find channel")
+            return self._getErrorPage(404, "Unable to find channel")
         data = dict(data)
         # Get channel home
         if func == "home":
             #Get 4 latest videos
             cmd = "SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? ORDER BY timestamp DESC LIMIT {}".format(__latestVideos__)
-            r = self.db.execute(cmd, (channelID,))
+            r = self._db.execute(cmd, (channelID,))
             videos = [dict(v) for v in r.fetchall()]
             del r
             #Convert timestamp and duration
             for v in videos:
-                v["views"] = self.intToHuman(v["viewcount"])
-                v["statisticsupdated"] = self.timestampToHumanString(v["statisticsupdated"])
-                v["quality"] = self.qualityLabel(v["resolution"])
-                v["duration"] = self.secToTime(v["duration"])
-                v["agestring"] = self.timestampToHumanString(v["timestamp"])
-                v["timestamp"] = self.timestampToLocalTimeString(v["timestamp"])
-            data["lastupdate"] = self.timestampToHumanString(data["lastupdate"])
+                v["views"] = self._intToHuman(v["viewcount"])
+                v["statisticsupdated"] = self._timestampToHumanString(v["statisticsupdated"])
+                v["quality"] = self._qualityLabel(v["resolution"])
+                v["duration"] = self._secToTime(v["duration"])
+                v["agestring"] = self._timestampToHumanString(v["timestamp"])
+                v["timestamp"] = self._timestampToLocalTimeString(v["timestamp"])
+            data["lastupdate"] = self._timestampToHumanString(data["lastupdate"])
             #Convert links in description
-            data["description"] = self.urlfinder.find(data["description"])
+            data["description"] = self._urlfinder.find(data["description"])
             #Render template
-            return flask.render_template("channel-home.html", title=data["name"], info=data, videos=videos, base=self.baseinfo)
+            return flask.render_template("channel-home.html", title=data["name"], info=data, videos=videos, base=self._baseinfo)
         #Get channel videos
         if func == "videos":
             #Calc number of pages
@@ -281,23 +285,23 @@ class Server(threading.Thread):
                 sorting = "timestamp DESC"
             #Query database
             cmd = "SELECT id,title,timestamp,duration,resolution,viewcount,statisticsupdated FROM videos WHERE channelID = ? ORDER BY {} LIMIT {} OFFSET {}".format(sorting, __videosPerPage__, (page - 1)*__videosPerPage__)
-            r = self.db.execute(cmd, (channelID,))
+            r = self._db.execute(cmd, (channelID,))
             videos = [dict(v) for v in r.fetchall()]
             del r
             #Convert timestamp and duration
             for v in videos:
-                v["views"] = self.intToHuman(v["viewcount"])
-                v["statisticsupdated"] = self.timestampToHumanString(v["statisticsupdated"])
-                v["quality"] = self.qualityLabel(v["resolution"])
-                v["duration"] = self.secToTime(v["duration"])
-                v["agestring"] = self.timestampToHumanString(v["timestamp"])
-                v["timestamp"] = self.timestampToLocalTimeString(v["timestamp"])
+                v["views"] = self._intToHuman(v["viewcount"])
+                v["statisticsupdated"] = self._timestampToHumanString(v["statisticsupdated"])
+                v["quality"] = self._qualityLabel(v["resolution"])
+                v["duration"] = self._secToTime(v["duration"])
+                v["agestring"] = self._timestampToHumanString(v["timestamp"])
+                v["timestamp"] = self._timestampToLocalTimeString(v["timestamp"])
             #Render template
-            return flask.render_template("channel-videos.html", title=data["name"] + " - Videos", info=data, videos=videos, base=self.baseinfo)
+            return flask.render_template("channel-videos.html", title=data["name"] + " - Videos", info=data, videos=videos, base=self._baseinfo)
         #Get channel info
         if func == "info":
             #Convert timestamp
-            data["lastupdate"] = self.timestampToLocalTimeString(data["lastupdate"])
+            data["lastupdate"] = self._timestampToLocalTimeString(data["lastupdate"])
             #Convert links
             links = []
             if data["links"]:
@@ -306,39 +310,39 @@ class Server(threading.Thread):
                     links.append({"pretty": l[0], "url": l[1]})
                 data["links"] = links
             #Convert links in description
-            data["description"] = self.urlfinder.find(data["description"])
+            data["description"] = self._urlfinder.find(data["description"])
             #Render template
-            return flask.render_template("channel-info.html", title=data["name"] + " - Info", info=data, base=self.baseinfo)
+            return flask.render_template("channel-info.html", title=data["name"] + " - Info", info=data, base=self._baseinfo)
         #Unknown func, redirect to channel home
         return flask.redirect(flask.url_for("channel", channelID=channelID))
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getStatistics(self):
+    def _getStatistics(self):
         '''
         Return the statistics page
         '''
         #Get last updated from database
-        r = self.db.execute("SELECT statisticsupdated FROM info WHERE id=1;")
+        r = self._db.execute("SELECT statisticsupdated FROM info WHERE id=1;")
         data = r.fetchone()
         del r
         #If not found, no statistics were generated yet, return 404
         if not data or not data["statisticsupdated"]:
             return '', 404
-        info = {"lastupdate": self.timestampToLocalTimeString(data["statisticsupdated"]), "agostring": self.timestampToHumanString(data["statisticsupdated"])}
+        info = {"lastupdate": self._timestampToLocalTimeString(data["statisticsupdated"]), "agostring": self._timestampToHumanString(data["statisticsupdated"])}
         #Get latest stats from database
-        r = self.db.execute("SELECT * FROM statsOverall ORDER BY timestamp DESC LIMIT 1;")
+        r = self._db.execute("SELECT * FROM statsOverall ORDER BY timestamp DESC LIMIT 1;")
         data = r.fetchone()
         del r
         #If not found, no statistics were generated yet, return 404
         if not data:
             return '', 404
         info = {**info, **dict(data)}
-        return flask.render_template("statistics.html", title=self.baseinfo["name"] + " - Statistics", info=info, base=self.baseinfo)
+        return flask.render_template("statistics.html", title=self._baseinfo["name"] + " - Statistics", info=info, base=self._baseinfo)
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getThumbnail(self, videoID):
+    def _getThumbnail(self, videoID):
         '''
         Return the video thumbnail
         '''
@@ -347,7 +351,7 @@ class Server(threading.Thread):
             return '', 404
 
         #Get info from database
-        r = self.db.execute("SELECT thumb,thumbformat FROM videos WHERE id = ?", (videoID,))
+        r = self._db.execute("SELECT thumb,thumbformat FROM videos WHERE id = ?", (videoID,))
         data = r.fetchone()
         del r
         #If not found, return 404
@@ -356,13 +360,13 @@ class Server(threading.Thread):
         #Try getting resize parameters
         if flask.request.args:
             try:
-                width = self.floatOrNone(flask.request.args.get("w"))
-                height = self.floatOrNone(flask.request.args.get("h"))
-                relWidth = self.floatOrNone(flask.request.args.get("rw"))
-                relHeight = self.floatOrNone(flask.request.args.get("rh"))
+                width = self._floatOrNone(flask.request.args.get("w"))
+                height = self._floatOrNone(flask.request.args.get("h"))
+                relWidth = self._floatOrNone(flask.request.args.get("rw"))
+                relHeight = self._floatOrNone(flask.request.args.get("rh"))
                 cropLoc = flask.request.args.get("c")
                 extra = flask.request.args.get("e")
-                img = self.manipulateImage(data["thumb"], data["thumbformat"], width, height, relWidth, relHeight, cropLoc, extra)
+                img = self._manipulateImage(data["thumb"], data["thumbformat"], width, height, relWidth, relHeight, cropLoc, extra)
             except ValueError:
                 img = data["thumb"]
         else:
@@ -376,7 +380,7 @@ class Server(threading.Thread):
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getProfile(self, channelID):
+    def _getProfile(self, channelID):
         '''
         Return the profile picture of a channel
         '''
@@ -385,7 +389,7 @@ class Server(threading.Thread):
             return '', 404
 
         #Get info from database
-        r = self.db.execute("SELECT profile,profileformat FROM channels WHERE id = ?", (channelID,))
+        r = self._db.execute("SELECT profile,profileformat FROM channels WHERE id = ?", (channelID,))
         data = r.fetchone()
         del r
         #If not found, return 404
@@ -394,13 +398,13 @@ class Server(threading.Thread):
         #Try getting resize parameters
         if flask.request.args:
             try:
-                width = self.floatOrNone(flask.request.args.get("w"))
-                height = self.floatOrNone(flask.request.args.get("h"))
-                relWidth = self.floatOrNone(flask.request.args.get("rw"))
-                relHeight = self.floatOrNone(flask.request.args.get("rh"))
+                width = self._floatOrNone(flask.request.args.get("w"))
+                height = self._floatOrNone(flask.request.args.get("h"))
+                relWidth = self._floatOrNone(flask.request.args.get("rw"))
+                relHeight = self._floatOrNone(flask.request.args.get("rh"))
                 cropLoc = flask.request.args.get("c")
                 extra = flask.request.args.get("e")
-                img = self.manipulateImage(data["profile"], data["profileformat"], width, height, relWidth, relHeight, cropLoc, extra)
+                img = self._manipulateImage(data["profile"], data["profileformat"], width, height, relWidth, relHeight, cropLoc, extra)
             except ValueError:
                 img = data["profile"]
         else:
@@ -414,7 +418,7 @@ class Server(threading.Thread):
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getBanner(self, channelID):
+    def _getBanner(self, channelID):
         '''
         Return the banner image of a channel
         '''
@@ -423,7 +427,7 @@ class Server(threading.Thread):
             return '', 404
 
         #Get info from database
-        r = self.db.execute("SELECT banner,bannerformat FROM channels WHERE id = ?", (channelID,))
+        r = self._db.execute("SELECT banner,bannerformat FROM channels WHERE id = ?", (channelID,))
         data = r.fetchone()
         del r
         #If not found, return 404
@@ -433,13 +437,13 @@ class Server(threading.Thread):
         #Try getting resize parameters
         if flask.request.args:
             try:
-                width = self.floatOrNone(flask.request.args.get("w"))
-                height = self.floatOrNone(flask.request.args.get("h"))
-                relWidth = self.floatOrNone(flask.request.args.get("rw"))
-                relHeight = self.floatOrNone(flask.request.args.get("rh"))
+                width = self._floatOrNone(flask.request.args.get("w"))
+                height = self._floatOrNone(flask.request.args.get("h"))
+                relWidth = self._floatOrNone(flask.request.args.get("rw"))
+                relHeight = self._floatOrNone(flask.request.args.get("rh"))
                 cropLoc = flask.request.args.get("c")
                 extra = flask.request.args.get("e")
-                img = self.manipulateImage(data["banner"], data["bannerformat"], width, height, relWidth, relHeight, cropLoc, extra)
+                img = self._manipulateImage(data["banner"], data["bannerformat"], width, height, relWidth, relHeight, cropLoc, extra)
             except ValueError:
                 img = data["banner"]
         else:
@@ -454,7 +458,7 @@ class Server(threading.Thread):
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getPlot(self, plotName):
+    def _getPlot(self, plotName):
         '''
         Return the plot with a given name incl. file extention
         '''
@@ -483,7 +487,7 @@ class Server(threading.Thread):
 
         #Get plot from database
         cmd = "SELECT {} FROM statsPlots WHERE name = ?".format(field)
-        r = self.db.execute(cmd, (name,))
+        r = self._db.execute(cmd, (name,))
         data = r.fetchone()
         del r
         #If not found, return 404
@@ -499,7 +503,7 @@ class Server(threading.Thread):
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getVideo(self, videoID):
+    def _getVideo(self, videoID):
         '''
         Return a video file
         '''
@@ -508,7 +512,7 @@ class Server(threading.Thread):
             return '', 404
 
         #Get info from database
-        r = self.db.execute("SELECT filepath FROM videos WHERE id = ?", (videoID,))
+        r = self._db.execute("SELECT filepath FROM videos WHERE id = ?", (videoID,))
         data = r.fetchone()
         del r
         #If not found, return 404
@@ -520,7 +524,7 @@ class Server(threading.Thread):
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getSubtitles(self, videoID):
+    def _getSubtitles(self, videoID):
         '''
         Return subtitles of a video if it has any
         '''
@@ -529,7 +533,7 @@ class Server(threading.Thread):
             return '', 404
 
         #Get info from database
-        r = self.db.execute("SELECT subtitles FROM videos WHERE id = ?", (videoID,))
+        r = self._db.execute("SELECT subtitles FROM videos WHERE id = ?", (videoID,))
         data = r.fetchone()
         del r
         #If not found, return 404
@@ -545,7 +549,7 @@ class Server(threading.Thread):
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getChapters(self, videoID):
+    def _getChapters(self, videoID):
         '''
         Return chapters of a video if it has any
         '''
@@ -554,7 +558,7 @@ class Server(threading.Thread):
             return '', 404
 
         #Get info from database
-        r = self.db.execute("SELECT chapters FROM videos WHERE id = ?", (videoID,))
+        r = self._db.execute("SELECT chapters FROM videos WHERE id = ?", (videoID,))
         data = r.fetchone()
         del r
         #If not found, return 404
@@ -585,26 +589,26 @@ class Server(threading.Thread):
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getError(self, error):
+    def _getError(self, error):
         '''
         Return the error page
         '''
         #Render template
-        return self.getErrorPage(error.code, error.description)
+        return self._getErrorPage(error.code, error.description)
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
-    def getErrorPage(self, code, description):
+    def _getErrorPage(self, code, description):
         '''
         Return the error page
         '''
         #Render template
-        return flask.render_template("error.html", error=description, base=self.baseinfo), code
+        return flask.render_template("error.html", error=description, base=self._baseinfo), code
     # ########################################################################### #
 
     # --------------------------------------------------------------------------- #
     @staticmethod
-    def manipulateImage(imgBin, imgFormat, width, height, relWidth, relHeight, cropLoc, extra):
+    def _manipulateImage(imgBin, imgFormat, width, height, relWidth, relHeight, cropLoc, extra):
         '''Manipulate image using PIL
 
         :param imgBin: The image to manipulate
@@ -742,7 +746,7 @@ class Server(threading.Thread):
 
     # --------------------------------------------------------------------------- #
     @staticmethod
-    def floatOrNone(var):
+    def _floatOrNone(var):
         '''Cast variable to float if not none
 
         :returns: Float value or None
@@ -757,7 +761,7 @@ class Server(threading.Thread):
 
     # --------------------------------------------------------------------------- #
     @staticmethod
-    def timestampToHumanString(timestamp):
+    def _timestampToHumanString(timestamp):
         '''Convert the difference between a timestamp and the current time to a
         human readable string (e.g "2 weeks" or "3 years")
 
@@ -813,7 +817,7 @@ class Server(threading.Thread):
 
     # --------------------------------------------------------------------------- #
     @staticmethod
-    def timestampToLocalTimeString(timestamp):
+    def _timestampToLocalTimeString(timestamp):
         '''Convert a UTC timestamp to local timestring
         :param timestamp: The timestamp
         :type timestamp: int
@@ -830,7 +834,7 @@ class Server(threading.Thread):
 
     # --------------------------------------------------------------------------- #
     @staticmethod
-    def secToTime(sec):
+    def _secToTime(sec):
         '''Convert duration in seconds to MM:SS or HH:MM:SS string
 
         :param sec: The duration in seconds
@@ -849,7 +853,7 @@ class Server(threading.Thread):
 
     # --------------------------------------------------------------------------- #
     @staticmethod
-    def intToHuman(i):
+    def _intToHuman(i):
         '''Convert an integer to a human readable shortstring (e.g 1205 > 1K, 153934 > 1M)
         If None, it returns "-"
 
@@ -873,7 +877,7 @@ class Server(threading.Thread):
 
     # --------------------------------------------------------------------------- #
     @staticmethod
-    def intToStr(i):
+    def _intToStr(i):
         '''Convert an integer to string or return "-" if None
 
         :param i: The number
@@ -888,7 +892,7 @@ class Server(threading.Thread):
 
     # --------------------------------------------------------------------------- #
     @staticmethod
-    def qualityLabel(resolution):
+    def _qualityLabel(resolution):
         '''Takes ytarchiver's resolution string and returns text for a quality label
 
         :param resolution: ytarchiver's resolution string

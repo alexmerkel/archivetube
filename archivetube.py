@@ -24,6 +24,7 @@ def main(args):
     parser.add_argument("-f", "--folder", action="store", dest="folder", help="Add an archive directory to the database (path will be stored as relative to DIR). This will force -i and -s")
     parser.add_argument("-i", "--index", action="store_const", dest="index", const=True, default=False, help="(Re-)create the index (this might take a while)")
     parser.add_argument("-s", "--statistics", action="store_const", dest="statistics", const=True, default=False, help="(Re-)calculate the statistics (this might take a while)")
+    parser.add_argument("-l", "--listen", action="store", dest="listen", default="0.0.0.0:8080", help="The IP:Port combination(s) to listen on (can be multiple, seperated by a space). IPv6 addresses must be in square brackets. Default: 0.0.0.0:8080")
     parser.add_argument("-V", "--version", action="version", version='%(prog)s {}'.format(atc.__version__))
     parser.add_argument("DIR", help="The directory to work in")
 
@@ -142,7 +143,7 @@ def main(args):
     #Start server
     try:
         baseinfo = {"name": atc.__prog__, "version": atc.__version__}
-        server = Server(dbCon, baseinfo)
+        server = Server(dbCon, baseinfo, args.listen)
         server.daemon = True
         server.start()
         server.join()
